@@ -2,12 +2,14 @@
 
 Uso: docker compose exec api python -m app.demo  (pode rodar mais de uma vez)
 """
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from sqlalchemy import select
 
+from app.constants import TZ
 from app.db import SessionLocal
-from app.models import Maquina, Produto, RoteiroEtapa, Setor
+from app.models import Maquina, OrdemEtapa, OrdemEvento, OrdemProducao, Produto, RoteiroEtapa, Setor, Usuario
 
 # (código, nome, posição no fluxo)
 SETORES = [
@@ -71,6 +73,88 @@ PRODUTOS = [
 ]
 
 
+# (produto, quantidade, prioridade, dias até o prazo, etapas concluídas, estado da etapa atual, máquinas usadas, motivo da pausa)
+ORDENS = [
+    ("PU-100-6", 600, "alta", 3, None, None, [], None),
+    ("CANT-50-6", 300, "normal", 6, None, None, [], None),
+    ("PUE-75-3", 400, "urgente", -1, 0, "em_andamento", ["DES-01"], None),
+    ("PU-100-6", 800, "normal", 4, 1, "na_fila", ["DES-01"], None),
+    ("CANT-50-6", 250, "alta", 2, 1, "em_andamento", ["DES-01", "COR-01"], None),
+    ("PUE-75-3", 500, "normal", 5, 2, "na_fila", ["DES-01", "COR-01"], None),
+    ("PU-100-6", 350, "normal", 1, 2, "em_andamento", ["DES-01", "COR-01", "DOB-01"], None),
+    ("CANT-50-6", 200, "baixa", 8, 2, "na_fila", ["DES-01", "COR-02"], "Aguardando ajuste do ferramental da dobradeira"),
+    ("PU-100-6", 1000, "normal", 0, 3, None, ["DES-01", "COR-01", "DOB-02"], None),
+]
+
+
+def carregar_ordens(db) -> int:
+    if db.scalar(select(OrdemProducao.id).limit(1)):
+        return 0
+    produtos = {p.codigo: p for p in db.scalars(select(Produto)).all()}
+    maquinas = {m.codigo: m for m in db.scalars(select(Maquina)).all()}
+    autor = db.scalar(select(Usuario).where(Usuario.perfil == "administrador").limit(1))
+    agora = datetime.now(timezone.utc)
+    hoje = datetime.now(TZ).date()
+    for numero, (codigo, qtd, prioridade, dias, feitas, estado, usadas, pausa) in enumerate(ORDENS, start=1):
+        produto = produtos[codigo]
+        inicio = agora - timedelta(hours=len(ORDENS) - numero + 2)
+        ordem = OrdemProducao(
+            numero=numero,
+            produto_id=produto.id,
+            quantidade=qtd,
+            prazo=hoje + timedelta(days=dias),
+            prioridade=prioridade,
+            status="planejada",
+            criado_por_id=autor.id if autor else None,
+            criado_em=inicio,
+            etapas=[
+                OrdemEtapa(sequencia=e.sequencia, setor_id=e.setor_id, operacao=e.operacao, tempo_padrao_seg=e.tempo_padrao_seg)
+                for e in produto.roteiro
+            ],
+        )
+        eventos = [("criada", f"OP criada: {qtd} PC de {codigo}.")]
+        if feitas is not None:
+            ordem.status = "em_producao" if feitas or estado == "em_andamento" else "liberada"
+            eventos.append(("liberada", f"Liberada para a fábrica: entra na fila de {produto.roteiro[0].setor.nome}."))
+            momento = inicio
+            for etapa, maq in zip(ordem.etapas, usadas):
+                momento += timedelta(minutes=35)
+                etapa.maquina_id = maquinas[maq].id
+                etapa.iniciada_em = momento
+                if etapa.sequencia <= feitas:
+                    etapa.status = "concluida"
+                    etapa.concluida_em = momento + timedelta(minutes=30)
+                    eventos.append(("etapa_concluida", f"Etapa {etapa.sequencia} concluída na {maq}."))
+                else:
+                    etapa.status = "em_andamento"
+                    eventos.append(("etapa_iniciada", f"Etapa {etapa.sequencia} iniciada na {maq}."))
+            if feitas < len(ordem.etapas):
+                atual = ordem.etapas[feitas]
+                if atual.status != "em_andamento":
+                    atual.status = "na_fila"
+            else:
+                ordem.status = "concluida"
+                ordem.concluida_em = momento + timedelta(minutes=30)
+                eventos.append(("concluida", "OP concluída: produto final pronto."))
+            if pausa:
+                ordem.status = "pausada"
+                ordem.motivo_pausa = pausa
+                eventos.append(("pausada", f"Pausada: {pausa}"))
+        db.add(ordem)
+        db.flush()
+        for i, (tipo, descricao) in enumerate(eventos):
+            db.add(
+                OrdemEvento(
+                    ordem_id=ordem.id,
+                    usuario_id=autor.id if autor else None,
+                    tipo=tipo,
+                    descricao=descricao,
+                    em=inicio + timedelta(minutes=i * 30),
+                )
+            )
+    return len(ORDENS)
+
+
 def carregar() -> dict[str, int]:
     novos = {"setores": 0, "maquinas": 0, "produtos": 0}
     with SessionLocal() as db:
@@ -107,6 +191,8 @@ def carregar() -> dict[str, int]:
                 )
             )
             novos["produtos"] += 1
+        db.flush()
+        novos["ordens"] = carregar_ordens(db)
         db.commit()
     return novos
 

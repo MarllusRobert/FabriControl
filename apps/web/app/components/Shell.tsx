@@ -23,6 +23,13 @@ const ICONES: Record<string, React.ReactNode> = {
       <rect x="3.5" y="13" width="7" height="7.5" rx="1.5" />
     </svg>
   ),
+  kanban: (
+    <svg width="18" height="18" viewBox="0 0 24 24" {...stroke}>
+      <rect x="3" y="4" width="5" height="16" rx="1.2" />
+      <rect x="10" y="4" width="5" height="10" rx="1.2" />
+      <rect x="17" y="4" width="4" height="13" rx="1.2" />
+    </svg>
+  ),
   maquinas: (
     <svg width="18" height="18" viewBox="0 0 24 24" {...stroke}>
       <rect x="3" y="9" width="18" height="11" rx="1.5" />
@@ -47,6 +54,7 @@ const ICONES: Record<string, React.ReactNode> = {
 // Rotas protegidas: a tela exigida para abrir cada uma.
 const TELA_DA_ROTA: [string, string][] = [
   ["/painel", "painel"],
+  ["/kanban", "kanban"],
   ["/maquinas", "maquinas"],
   ["/produtos", "produtos"],
   ["/usuarios", "usuarios"],

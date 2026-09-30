@@ -20,7 +20,7 @@ export type SessionUser = {
   inicio: string;
 };
 
-export type Acao = "editar_cadastros" | "gerenciar_usuarios";
+export type Acao = "editar_cadastros" | "planejar_producao" | "movimentar_producao" | "gerenciar_usuarios";
 
 export function temAcao(user: SessionUser | null, acao: Acao) {
   return Boolean(user && user.acoes.includes(acao));
