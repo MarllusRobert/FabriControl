@@ -1,8 +1,8 @@
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Time, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.constants import PERFIS
@@ -66,6 +66,55 @@ class Maquina(Base):
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
     atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
+    setor: Mapped[Setor] = relationship(lazy="joined")
+
+
+def _minutos(h: time) -> int:
+    return h.hour * 60 + h.minute
+
+
+class Turno(Base):
+    __tablename__ = "turnos"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    nome: Mapped[str] = mapped_column(String(60), unique=True)
+    inicio: Mapped[time] = mapped_column(Time)
+    # Fim menor que o início: o turno termina no dia seguinte (ex.: 22:00 às 06:00).
+    fim: Mapped[time] = mapped_column(Time)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    @property
+    def vira_meia_noite(self) -> bool:
+        return self.fim < self.inicio
+
+    @property
+    def duracao_min(self) -> int:
+        return (_minutos(self.fim) - _minutos(self.inicio)) % 1440
+
+    def faixas(self) -> list[tuple[int, int]]:
+        """Intervalos [início, fim) em minutos do dia, partidos na meia-noite."""
+        ini, fim = _minutos(self.inicio), _minutos(self.fim)
+        return [(ini, fim)] if ini < fim else [(ini, 1440), (0, fim)]
+
+    def cobre(self, hora: time) -> bool:
+        m = _minutos(hora)
+        return any(a <= m < b for a, b in self.faixas())
+
+
+class Operador(Base):
+    __tablename__ = "operadores"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    matricula: Mapped[str] = mapped_column(String(20), unique=True)
+    nome: Mapped[str] = mapped_column(String(120))
+    turno_id: Mapped[str] = mapped_column(String(36), ForeignKey("turnos.id", ondelete="RESTRICT"), index=True)
+    setor_id: Mapped[str] = mapped_column(String(36), ForeignKey("setores.id", ondelete="RESTRICT"), index=True)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    turno: Mapped[Turno] = relationship(lazy="joined")
     setor: Mapped[Setor] = relationship(lazy="joined")
 
 

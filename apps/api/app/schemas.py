@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -270,3 +270,57 @@ class MaquinaOut(BaseModel):
     recebe_ordem: bool
     observacao: str | None
     atualizado_em: datetime
+
+
+# ---------- Equipe ----------
+
+
+class TurnoIn(BaseModel):
+    codigo: str = Field(min_length=1, max_length=10)
+    nome: str = Field(min_length=2, max_length=60)
+    inicio: time
+    fim: time
+    ativo: bool = True
+
+    _valida_codigo = field_validator("codigo")(_codigo)
+    _valida_nome = field_validator("nome")(_texto)
+
+    @field_validator("inicio", "fim")
+    @classmethod
+    def sem_segundos(cls, value: time) -> time:
+        return value.replace(second=0, microsecond=0, tzinfo=None)
+
+
+class TurnoOut(BaseModel):
+    id: str
+    codigo: str
+    nome: str
+    inicio: str
+    fim: str
+    duracao_min: int
+    vira_meia_noite: bool
+    ativo: bool
+    operadores: int = 0
+
+
+class OperadorIn(BaseModel):
+    matricula: str = Field(min_length=1, max_length=20)
+    nome: str = Field(min_length=2, max_length=120)
+    turno_id: str
+    setor_id: str
+    ativo: bool = True
+
+    _valida_matricula = field_validator("matricula")(_codigo)
+    _valida_nome = field_validator("nome")(_texto)
+
+
+class OperadorOut(BaseModel):
+    id: str
+    matricula: str
+    nome: str
+    turno_id: str
+    turno_nome: str
+    turno_horario: str
+    setor_id: str
+    setor_nome: str
+    ativo: bool

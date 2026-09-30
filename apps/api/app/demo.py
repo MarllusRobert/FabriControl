@@ -2,14 +2,25 @@
 
 Uso: docker compose exec api python -m app.demo  (pode rodar mais de uma vez)
 """
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from decimal import Decimal
 
 from sqlalchemy import select
 
 from app.constants import TZ
 from app.db import SessionLocal
-from app.models import Maquina, OrdemEtapa, OrdemEvento, OrdemProducao, Produto, RoteiroEtapa, Setor, Usuario
+from app.models import (
+    Maquina,
+    Operador,
+    OrdemEtapa,
+    OrdemEvento,
+    OrdemProducao,
+    Produto,
+    RoteiroEtapa,
+    Setor,
+    Turno,
+    Usuario,
+)
 
 # (código, nome, posição no fluxo)
 SETORES = [
@@ -72,6 +83,25 @@ PRODUTOS = [
     ),
 ]
 
+
+# (código, nome, início, fim)
+TURNOS = [
+    ("T1", "1º turno", time(6), time(14)),
+    ("T2", "2º turno", time(14), time(22)),
+    ("T3", "3º turno", time(22), time(6)),
+]
+
+# (matrícula, nome, turno, setor)
+OPERADORES = [
+    ("1001", "Carlos Henrique Alves", "T1", "DES"),
+    ("1002", "Marcos Vinícius Rocha", "T1", "COR"),
+    ("1003", "Fernanda Lopes", "T1", "DOB"),
+    ("1004", "Rafael Moreira", "T2", "DES"),
+    ("1005", "Juliana Martins", "T2", "COR"),
+    ("1006", "Diego Carvalho", "T2", "DOB"),
+    ("1007", "Anderson Pereira", "T3", "COR"),
+    ("1008", "Lucas Ferreira", "T3", "DOB"),
+]
 
 # (produto, quantidade, prioridade, dias até o prazo, etapas concluídas, estado da etapa atual, máquinas usadas, motivo da pausa)
 ORDENS = [
@@ -192,6 +222,23 @@ def carregar() -> dict[str, int]:
             )
             novos["produtos"] += 1
         db.flush()
+
+        turnos = {t.codigo: t for t in db.scalars(select(Turno)).all()}
+        novos["turnos"] = 0
+        for codigo, nome, inicio, fim in TURNOS:
+            if codigo not in turnos:
+                turnos[codigo] = Turno(codigo=codigo, nome=nome, inicio=inicio, fim=fim)
+                db.add(turnos[codigo])
+                novos["turnos"] += 1
+        db.flush()
+
+        matriculas = set(db.scalars(select(Operador.matricula)).all())
+        novos["operadores"] = 0
+        for matricula, nome, turno, setor in OPERADORES:
+            if matricula not in matriculas:
+                db.add(Operador(matricula=matricula, nome=nome, turno_id=turnos[turno].id, setor_id=setores[setor].id))
+                novos["operadores"] += 1
+
         novos["ordens"] = carregar_ordens(db)
         db.commit()
     return novos

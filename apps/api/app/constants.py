@@ -7,6 +7,7 @@ TELAS_LABEL = {
     "kanban": "Kanban da produção",
     "maquinas": "Máquinas e centros de trabalho",
     "produtos": "Produtos e roteiros de fabricação",
+    "equipe": "Turnos e operadores",
     "usuarios": "Usuários",
 }
 
@@ -14,6 +15,7 @@ ACOES_LABEL = {
     "editar_cadastros": "Cadastrar e editar máquinas, centros de trabalho e produtos",
     "planejar_producao": "Criar, liberar e cancelar ordens de produção",
     "movimentar_producao": "Iniciar, concluir e pausar etapas no Kanban",
+    "gerenciar_equipe": "Cadastrar turnos e operadores",
     "gerenciar_usuarios": "Cadastrar usuários e definir perfis",
 }
 
@@ -26,13 +28,13 @@ PERFIS = {
     },
     "pcp": {
         "label": "PCP (planejamento)",
-        "telas": ["painel", "kanban", "maquinas", "produtos"],
-        "acoes": ["editar_cadastros", "planejar_producao", "movimentar_producao"],
+        "telas": ["painel", "kanban", "maquinas", "produtos", "equipe"],
+        "acoes": ["editar_cadastros", "planejar_producao", "movimentar_producao", "gerenciar_equipe"],
     },
     "supervisor": {
         "label": "Supervisor de produção",
-        "telas": ["painel", "kanban", "maquinas", "produtos"],
-        "acoes": ["movimentar_producao"],
+        "telas": ["painel", "kanban", "maquinas", "produtos", "equipe"],
+        "acoes": ["movimentar_producao", "gerenciar_equipe"],
     },
     "operador": {
         "label": "Operador",
@@ -51,6 +53,7 @@ MENU = [
     ("kanban", "Kanban", "/kanban"),
     ("maquinas", "Máquinas", "/maquinas"),
     ("produtos", "Produtos", "/produtos"),
+    ("equipe", "Equipe", "/equipe"),
     ("usuarios", "Usuários", "/usuarios"),
 ]
 

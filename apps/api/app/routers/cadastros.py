@@ -13,8 +13,8 @@ from app.schemas import MaquinaIn, MaquinaOut, MaquinaUpdate, SetorIn, SetorOut
 
 router = APIRouter(tags=["cadastros"])
 ver = require_tela("maquinas")
-# Setores também alimentam o roteiro dos produtos.
-ver_setores = require_alguma("maquinas", "produtos")
+# Setores também alimentam o roteiro dos produtos e a lotação dos operadores.
+ver_setores = require_alguma("maquinas", "produtos", "equipe")
 editar = require_acao("editar_cadastros")
 
 

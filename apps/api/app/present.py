@@ -10,16 +10,18 @@ from app.constants import (
     inicio_for,
     menu_for,
 )
-from app.models import Maquina, OrdemProducao, Produto, Usuario
+from app.models import Maquina, Operador, OrdemProducao, Produto, Turno, Usuario
 from app.schemas import (
     MaquinaOut,
     MenuItem,
+    OperadorOut,
     OrdemDetalheOut,
     OrdemEtapaOut,
     OrdemEventoOut,
     OrdemOut,
     ProdutoOut,
     RoteiroOut,
+    TurnoOut,
     UsuarioOut,
 )
 
@@ -76,6 +78,38 @@ def maquina_out(m: Maquina) -> MaquinaOut:
         recebe_ordem=m.status in STATUS_RECEBE_ORDEM,
         observacao=m.observacao,
         atualizado_em=m.atualizado_em,
+    )
+
+
+def horario(t: Turno) -> str:
+    return f"{t.inicio:%H:%M} às {t.fim:%H:%M}"
+
+
+def turno_out(t: Turno, operadores: int = 0) -> TurnoOut:
+    return TurnoOut(
+        id=t.id,
+        codigo=t.codigo,
+        nome=t.nome,
+        inicio=f"{t.inicio:%H:%M}",
+        fim=f"{t.fim:%H:%M}",
+        duracao_min=t.duracao_min,
+        vira_meia_noite=t.vira_meia_noite,
+        ativo=t.ativo,
+        operadores=operadores,
+    )
+
+
+def operador_out(o: Operador) -> OperadorOut:
+    return OperadorOut(
+        id=o.id,
+        matricula=o.matricula,
+        nome=o.nome,
+        turno_id=o.turno_id,
+        turno_nome=o.turno.nome,
+        turno_horario=horario(o.turno),
+        setor_id=o.setor_id,
+        setor_nome=o.setor.nome,
+        ativo=o.ativo,
     )
 
 
