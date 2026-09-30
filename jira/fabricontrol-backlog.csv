@@ -65,6 +65,14 @@ Critérios de aceite:
 - Planejada → Liberada → Em produção → Pausada → Concluída / Cancelada
 - Histórico com data, usuário e motivo
 - Ordem atrasada destacada","High","3","ordens","sprint-2"
+"S31","E3","Story","Kanban da produção por etapa do processo (Desbobinador → Guilhotina → Dobradeira)","Como supervisor, quero ver cada ordem andando de processo em processo, para saber onde está cada lote e o que vem a seguir.
+
+Critérios de aceite:
+- Uma coluna por setor, na ordem do fluxo da fábrica, mais Planejadas e Concluídas
+- Cartão só avança para a próxima etapa do roteiro (arrastar ou botão)
+- Iniciar pede a máquina quando o setor tem mais de uma
+- Pausa exige motivo e fica destacada
+- Atualiza sozinho","High","5","ordens","sprint-2"
 "S10","E3","Story","Fila de produção por máquina (sequenciamento)","Como PCP, quero ordenar a fila de cada máquina arrastando as ordens, para priorizar o que é urgente.
 
 Critérios de aceite:

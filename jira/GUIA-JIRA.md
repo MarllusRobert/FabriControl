@@ -7,7 +7,7 @@ Sistema de controle de produção industrial (metalúrgica) com foco em **contro
 | Projeto | FabriControl |
 | Chave | `FC` (as tarefas ficam FC-1, FC-2...) |
 | Método | Scrum, sprints de 1 semana |
-| Backlog | 9 épicos, 33 histórias/tarefas, 17 subtarefas, 117 pontos |
+| Backlog | 9 épicos, 34 histórias/tarefas, 17 subtarefas, 122 pontos |
 | Arquivo | `fabricontrol-backlog.csv` (gerado por `gerar_backlog.py`) |
 
 ## 1. Criar a conta (grátis até 10 usuários)
@@ -51,7 +51,7 @@ Cada item já vem com um rótulo `sprint-1` … `sprint-6` com a sugestão de pl
 | Sprint | Meta da sprint | Pontos |
 |---|---|---|
 | Sprint 1 | Projeto rodando em Docker com CI, login por perfil e cadastro de máquinas | 14 |
-| Sprint 2 | Cadastros completos e ordens de produção com status e histórico | 17 |
+| Sprint 2 | Cadastros completos, ordens de produção com status e histórico e Kanban por etapa do processo | 22 |
 | Sprint 3 | Operador apontando produção, refugo e paradas; simulador de dados das máquinas | 19 |
 | Sprint 4 | Pipeline de dados (ingestão, limpeza, modelo analítico, qualidade) e cálculo do OEE | 24 |
 | Sprint 5 | Painéis da fábrica e por máquina, Pareto e Gantt | 20 |
