@@ -7,6 +7,8 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.db import check_database, init_db
+from app.routers.auth import router as auth_router
+from app.routers.usuarios import router as usuarios_router
 
 settings = get_settings()
 if settings.is_production and (problemas := settings.problemas_producao()):
@@ -33,6 +35,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+app.include_router(auth_router)
+app.include_router(usuarios_router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
