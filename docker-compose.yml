@@ -1,0 +1,73 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: fc-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fabri}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fabri}
+      POSTGRES_DB: ${POSTGRES_DB:-fabricontrol}
+      TZ: America/Sao_Paulo
+    ports:
+      - "5435:5432"
+    volumes:
+      - fc_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fabri} -d ${POSTGRES_DB:-fabricontrol}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: fc-api
+    restart: unless-stopped
+    # Dev: recarrega ao salvar.
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    environment:
+      ENVIRONMENT: development
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3040,http://127.0.0.1:3040}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://fabri:fabri@db:5432/fabricontrol}
+      JWT_SECRET: ${JWT_SECRET:-fabricontrol-dev-change-me}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-600}
+      TZ: America/Sao_Paulo
+    ports:
+      - "8040:8000"
+    volumes:
+      - ./apps/api:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      target: dev
+    container_name: fc-web
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8040}
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      TZ: America/Sao_Paulo
+    ports:
+      - "3040:3000"
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  fc_pgdata:
