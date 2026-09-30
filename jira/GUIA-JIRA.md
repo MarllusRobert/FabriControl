@@ -42,7 +42,7 @@ Sistema de controle de produção industrial (metalúrgica) com foco em **contro
 | Labels (as duas colunas) | Rótulos |
 
 5. Marque **"Mapear valores"** para *Issue Type* e ligue: `Epic → Épico`, `Story → História`, `Task → Tarefa`, `Sub-task → Subtarefa`.
-6. **Validar** → **Iniciar importação**. No fim devem aparecer **59 itens** criados.
+6. **Validar** → **Iniciar importação**. No fim devem aparecer **60 itens** criados.
 
 ## 4. Montar as sprints
 
