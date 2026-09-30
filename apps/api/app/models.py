@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Time, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.constants import PERFIS
@@ -46,6 +46,8 @@ class Setor(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     codigo: Mapped[str] = mapped_column(String(20), unique=True)
     nome: Mapped[str] = mapped_column(String(80), unique=True)
+    # Posição no fluxo da fábrica; define a ordem das colunas do Kanban.
+    ordem: Mapped[int] = mapped_column(Integer, default=0)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True)
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
@@ -65,3 +67,172 @@ class Maquina(Base):
     atualizado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow)
 
     setor: Mapped[Setor] = relationship(lazy="joined")
+
+
+def _minutos(h: time) -> int:
+    return h.hour * 60 + h.minute
+
+
+class Turno(Base):
+    __tablename__ = "turnos"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    nome: Mapped[str] = mapped_column(String(60), unique=True)
+    inicio: Mapped[time] = mapped_column(Time)
+    # Fim menor que o início: o turno termina no dia seguinte (ex.: 22:00 às 06:00).
+    fim: Mapped[time] = mapped_column(Time)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    @property
+    def vira_meia_noite(self) -> bool:
+        return self.fim < self.inicio
+
+    @property
+    def duracao_min(self) -> int:
+        return (_minutos(self.fim) - _minutos(self.inicio)) % 1440
+
+    def faixas(self) -> list[tuple[int, int]]:
+        """Intervalos [início, fim) em minutos do dia, partidos na meia-noite."""
+        ini, fim = _minutos(self.inicio), _minutos(self.fim)
+        return [(ini, fim)] if ini < fim else [(ini, 1440), (0, fim)]
+
+    def cobre(self, hora: time) -> bool:
+        m = _minutos(hora)
+        return any(a <= m < b for a, b in self.faixas())
+
+
+class Operador(Base):
+    __tablename__ = "operadores"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    matricula: Mapped[str] = mapped_column(String(20), unique=True)
+    nome: Mapped[str] = mapped_column(String(120))
+    turno_id: Mapped[str] = mapped_column(String(36), ForeignKey("turnos.id", ondelete="RESTRICT"), index=True)
+    setor_id: Mapped[str] = mapped_column(String(36), ForeignKey("setores.id", ondelete="RESTRICT"), index=True)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    turno: Mapped[Turno] = relationship(lazy="joined")
+    setor: Mapped[Setor] = relationship(lazy="joined")
+
+
+class MotivoParada(Base):
+    __tablename__ = "motivos_parada"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    descricao: Mapped[str] = mapped_column(String(120), unique=True)
+    tipo: Mapped[str] = mapped_column(String(15))
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class MotivoRefugo(Base):
+    __tablename__ = "motivos_refugo"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    descricao: Mapped[str] = mapped_column(String(120), unique=True)
+    categoria: Mapped[str] = mapped_column(String(20))
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class Produto(Base):
+    __tablename__ = "produtos"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    codigo: Mapped[str] = mapped_column(String(30), unique=True)
+    descricao: Mapped[str] = mapped_column(String(160))
+    unidade: Mapped[str] = mapped_column(String(6), default="PC")
+    # Comprimento da chapa cortada no desbobinador (ex.: 3000 ou 6000 mm).
+    comprimento_mm: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+    roteiro: Mapped[list["RoteiroEtapa"]] = relationship(
+        order_by="RoteiroEtapa.sequencia", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+
+class RoteiroEtapa(Base):
+    """Uma operação do caminho de fabricação do produto (ex.: 2 - Guilhotina: cortar a tira)."""
+
+    __tablename__ = "roteiro_etapas"
+    __table_args__ = (UniqueConstraint("produto_id", "sequencia", name="uq_roteiro_produto_sequencia"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    produto_id: Mapped[str] = mapped_column(String(36), ForeignKey("produtos.id", ondelete="CASCADE"), index=True)
+    sequencia: Mapped[int] = mapped_column(Integer)
+    setor_id: Mapped[str] = mapped_column(String(36), ForeignKey("setores.id", ondelete="RESTRICT"))
+    operacao: Mapped[str] = mapped_column(String(160))
+    tempo_padrao_seg: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+
+    setor: Mapped[Setor] = relationship(lazy="joined")
+
+
+class OrdemProducao(Base):
+    __tablename__ = "ordens_producao"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    numero: Mapped[int] = mapped_column(Integer, unique=True)
+    produto_id: Mapped[str] = mapped_column(String(36), ForeignKey("produtos.id", ondelete="RESTRICT"), index=True)
+    quantidade: Mapped[int] = mapped_column(Integer)
+    prazo: Mapped[date | None] = mapped_column(Date, nullable=True)
+    prioridade: Mapped[str] = mapped_column(String(10), default="normal")
+    status: Mapped[str] = mapped_column(String(15), default="planejada", index=True)
+    motivo_pausa: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    observacao: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    criado_por_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    concluida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    produto: Mapped[Produto] = relationship(lazy="joined")
+    # A ordem guarda a própria cópia do roteiro: mudar o produto depois não altera ordens já criadas.
+    etapas: Mapped[list["OrdemEtapa"]] = relationship(
+        order_by="OrdemEtapa.sequencia", cascade="all, delete-orphan", lazy="selectin"
+    )
+    eventos: Mapped[list["OrdemEvento"]] = relationship(
+        order_by="OrdemEvento.em", cascade="all, delete-orphan", lazy="select"
+    )
+
+    @property
+    def etapa_atual(self) -> "OrdemEtapa | None":
+        return next((e for e in self.etapas if e.status != "concluida"), None)
+
+
+class OrdemEtapa(Base):
+    __tablename__ = "ordem_etapas"
+    __table_args__ = (UniqueConstraint("ordem_id", "sequencia", name="uq_ordem_etapa_sequencia"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    ordem_id: Mapped[str] = mapped_column(String(36), ForeignKey("ordens_producao.id", ondelete="CASCADE"), index=True)
+    sequencia: Mapped[int] = mapped_column(Integer)
+    setor_id: Mapped[str] = mapped_column(String(36), ForeignKey("setores.id", ondelete="RESTRICT"))
+    operacao: Mapped[str] = mapped_column(String(160))
+    tempo_padrao_seg: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    # aguardando → na_fila → em_andamento → concluida
+    status: Mapped[str] = mapped_column(String(15), default="aguardando")
+    maquina_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("maquinas.id", ondelete="SET NULL"), nullable=True)
+    iniciada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    concluida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    setor: Mapped[Setor] = relationship(lazy="joined")
+    maquina: Mapped[Maquina | None] = relationship(lazy="joined")
+
+
+class OrdemEvento(Base):
+    """Histórico da ordem: quem fez o quê e quando (rastreabilidade)."""
+
+    __tablename__ = "ordem_eventos"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    ordem_id: Mapped[str] = mapped_column(String(36), ForeignKey("ordens_producao.id", ondelete="CASCADE"), index=True)
+    em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    usuario_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    tipo: Mapped[str] = mapped_column(String(20))
+    descricao: Mapped[str] = mapped_column(String(300))
+
+    usuario: Mapped[Usuario | None] = relationship(lazy="joined")

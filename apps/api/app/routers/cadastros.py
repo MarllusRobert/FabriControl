@@ -6,27 +6,30 @@ from sqlalchemy.orm import Session
 
 from app.constants import STATUS_MAQUINA, STATUS_RECEBE_ORDEM
 from app.db import get_db
-from app.deps import require_acao, require_tela
+from app.deps import require_acao, require_alguma, require_tela
 from app.models import Maquina, Setor, Usuario
 from app.present import maquina_out
 from app.schemas import MaquinaIn, MaquinaOut, MaquinaUpdate, SetorIn, SetorOut
 
 router = APIRouter(tags=["cadastros"])
 ver = require_tela("maquinas")
+# Setores também alimentam o roteiro dos produtos e a lotação dos operadores.
+ver_setores = require_alguma("maquinas", "produtos", "equipe")
 editar = require_acao("editar_cadastros")
 
 
 # ---------- Setores (centros de trabalho) ----------
 
 
+def _setor_out(s: Setor, maquinas: int = 0) -> SetorOut:
+    return SetorOut(id=s.id, codigo=s.codigo, nome=s.nome, ordem=s.ordem, ativo=s.ativo, maquinas=maquinas)
+
+
 @router.get("/setores", response_model=list[SetorOut])
-def listar_setores(_user: Usuario = Depends(ver), db: Session = Depends(get_db)) -> list[SetorOut]:
+def listar_setores(_user: Usuario = Depends(ver_setores), db: Session = Depends(get_db)) -> list[SetorOut]:
     contagem = dict(db.execute(select(Maquina.setor_id, func.count()).group_by(Maquina.setor_id)).all())
-    setores = db.scalars(select(Setor).order_by(Setor.codigo)).all()
-    return [
-        SetorOut(id=s.id, codigo=s.codigo, nome=s.nome, ativo=s.ativo, maquinas=contagem.get(s.id, 0))
-        for s in setores
-    ]
+    setores = db.scalars(select(Setor).order_by(Setor.ordem, Setor.codigo)).all()
+    return [_setor_out(s, contagem.get(s.id, 0)) for s in setores]
 
 
 def _setor_duplicado(db: Session, payload: SetorIn, ignorar_id: str | None = None) -> None:
@@ -41,10 +44,10 @@ def _setor_duplicado(db: Session, payload: SetorIn, ignorar_id: str | None = Non
 @router.post("/setores", response_model=SetorOut, status_code=201)
 def criar_setor(payload: SetorIn, _user: Usuario = Depends(editar), db: Session = Depends(get_db)) -> SetorOut:
     _setor_duplicado(db, payload)
-    setor = Setor(codigo=payload.codigo, nome=payload.nome, ativo=payload.ativo)
+    setor = Setor(codigo=payload.codigo, nome=payload.nome, ordem=payload.ordem, ativo=payload.ativo)
     db.add(setor)
     db.commit()
-    return SetorOut(id=setor.id, codigo=setor.codigo, nome=setor.nome, ativo=setor.ativo)
+    return _setor_out(setor)
 
 
 @router.put("/setores/{setor_id}", response_model=SetorOut)
@@ -55,10 +58,10 @@ def atualizar_setor(
     if setor is None:
         raise HTTPException(status_code=404, detail="Centro de trabalho não encontrado.")
     _setor_duplicado(db, payload, ignorar_id=setor.id)
-    setor.codigo, setor.nome, setor.ativo = payload.codigo, payload.nome, payload.ativo
+    setor.codigo, setor.nome, setor.ordem, setor.ativo = payload.codigo, payload.nome, payload.ordem, payload.ativo
     db.commit()
     total = db.scalar(select(func.count()).select_from(Maquina).where(Maquina.setor_id == setor.id)) or 0
-    return SetorOut(id=setor.id, codigo=setor.codigo, nome=setor.nome, ativo=setor.ativo, maquinas=total)
+    return _setor_out(setor, total)
 
 
 # ---------- Máquinas ----------
@@ -102,7 +105,7 @@ def listar_maquinas(
         consulta = consulta.where(Maquina.status == status)
     if recebe_ordem:
         consulta = consulta.where(Maquina.status.in_(STATUS_RECEBE_ORDEM), Setor.ativo.is_(True))
-    maquinas = db.scalars(consulta.order_by(Setor.codigo, Maquina.codigo)).all()
+    maquinas = db.scalars(consulta.order_by(Setor.ordem, Setor.codigo, Maquina.codigo)).all()
     return [maquina_out(m) for m in maquinas]
 
 
@@ -113,8 +116,8 @@ def resumo_maquinas(_user: Usuario = Depends(ver), db: Session = Depends(get_db)
         select(Setor.nome, func.count(Maquina.id))
         .outerjoin(Maquina, Maquina.setor_id == Setor.id)
         .where(Setor.ativo.is_(True))
-        .group_by(Setor.codigo, Setor.nome)
-        .order_by(Setor.codigo)
+        .group_by(Setor.ordem, Setor.codigo, Setor.nome)
+        .order_by(Setor.ordem, Setor.codigo)
     ).all()
     return {
         "total": sum(por_status.values()),

@@ -1,15 +1,19 @@
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.constants import PERFIS, STATUS_MAQUINA
+from app.constants import CATEGORIAS_REFUGO, PERFIS, STATUS_MAQUINA, TIPOS_PARADA
 
 Perfil = Literal["administrador", "pcp", "supervisor", "operador", "qualidade"]
 StatusMaquina = Literal["ativa", "manutencao", "inativa"]
+TipoParada = Literal["planejada", "nao_planejada"]
+CategoriaRefugo = Literal["dimensional", "acabamento", "material", "processo", "manuseio"]
 
 assert set(Perfil.__args__) == set(PERFIS)
 assert set(StatusMaquina.__args__) == set(STATUS_MAQUINA)
+assert set(TipoParada.__args__) == set(TIPOS_PARADA)
+assert set(CategoriaRefugo.__args__) == set(CATEGORIAS_REFUGO)
 
 
 def _email(value: str) -> str:
@@ -103,6 +107,7 @@ class UsuarioUpdate(BaseModel):
 class SetorIn(BaseModel):
     codigo: str = Field(min_length=1, max_length=20)
     nome: str = Field(min_length=2, max_length=80)
+    ordem: int = Field(default=0, ge=0, le=99)
     ativo: bool = True
 
     _valida_codigo = field_validator("codigo")(_codigo)
@@ -113,6 +118,7 @@ class SetorOut(BaseModel):
     id: str
     codigo: str
     nome: str
+    ordem: int
     ativo: bool
     maquinas: int = 0
 
@@ -148,6 +154,113 @@ class MaquinaUpdate(BaseModel):
         return None if value is None else _texto(value)
 
 
+class RoteiroIn(BaseModel):
+    setor_id: str
+    operacao: str = Field(min_length=2, max_length=160)
+    tempo_padrao_seg: float | None = Field(default=None, gt=0, le=86400)
+
+    _valida_operacao = field_validator("operacao")(_texto)
+
+
+class ProdutoIn(BaseModel):
+    codigo: str = Field(min_length=1, max_length=30)
+    descricao: str = Field(min_length=2, max_length=160)
+    unidade: str = Field(default="PC", min_length=1, max_length=6)
+    comprimento_mm: int | None = Field(default=None, gt=0, le=20000)
+    ativo: bool = True
+    roteiro: list[RoteiroIn] = Field(min_length=1, max_length=20)
+
+    _valida_codigo = field_validator("codigo")(_codigo)
+    _valida_descricao = field_validator("descricao")(_texto)
+    _valida_unidade = field_validator("unidade")(_codigo)
+
+
+class RoteiroOut(BaseModel):
+    sequencia: int
+    setor_id: str
+    setor_nome: str
+    operacao: str
+    tempo_padrao_seg: float | None
+
+
+class ProdutoOut(BaseModel):
+    id: str
+    codigo: str
+    descricao: str
+    unidade: str
+    comprimento_mm: int | None
+    ativo: bool
+    roteiro: list[RoteiroOut]
+
+
+Prioridade = Literal["baixa", "normal", "alta", "urgente"]
+
+
+class OrdemIn(BaseModel):
+    produto_id: str
+    quantidade: int = Field(gt=0, le=1_000_000)
+    prazo: date | None = None
+    prioridade: Prioridade = "normal"
+    observacao: str | None = Field(default=None, max_length=500)
+
+
+class MaquinaEscolhaIn(BaseModel):
+    maquina_id: str | None = None
+
+
+class MotivoIn(BaseModel):
+    motivo: str = Field(min_length=3, max_length=300)
+
+    _valida_motivo = field_validator("motivo")(_texto)
+
+
+class OrdemEtapaOut(BaseModel):
+    sequencia: int
+    setor_id: str
+    setor_nome: str
+    operacao: str
+    status: str
+    status_label: str
+    maquina_id: str | None
+    maquina_codigo: str | None
+    iniciada_em: datetime | None
+    concluida_em: datetime | None
+
+
+class OrdemOut(BaseModel):
+    id: str
+    numero: int
+    produto_id: str
+    produto_codigo: str
+    produto_descricao: str
+    comprimento_mm: int | None
+    unidade: str
+    quantidade: int
+    prazo: date | None
+    prioridade: str
+    status: str
+    status_label: str
+    atrasada: bool
+    motivo_pausa: str | None
+    observacao: str | None
+    etapa_atual: int | None
+    total_etapas: int
+    etapas: list[OrdemEtapaOut]
+    criado_em: datetime
+    concluida_em: datetime | None
+
+
+class OrdemEventoOut(BaseModel):
+    em: datetime
+    tipo: str
+    descricao: str
+    usuario_nome: str | None
+
+
+class OrdemDetalheOut(OrdemOut):
+    eventos: list[OrdemEventoOut]
+
+
 class MaquinaOut(BaseModel):
     id: str
     codigo: str
@@ -161,3 +274,109 @@ class MaquinaOut(BaseModel):
     recebe_ordem: bool
     observacao: str | None
     atualizado_em: datetime
+
+
+# ---------- Equipe ----------
+
+
+class TurnoIn(BaseModel):
+    codigo: str = Field(min_length=1, max_length=10)
+    nome: str = Field(min_length=2, max_length=60)
+    inicio: time
+    fim: time
+    ativo: bool = True
+
+    _valida_codigo = field_validator("codigo")(_codigo)
+    _valida_nome = field_validator("nome")(_texto)
+
+    @field_validator("inicio", "fim")
+    @classmethod
+    def sem_segundos(cls, value: time) -> time:
+        return value.replace(second=0, microsecond=0, tzinfo=None)
+
+
+class TurnoOut(BaseModel):
+    id: str
+    codigo: str
+    nome: str
+    inicio: str
+    fim: str
+    duracao_min: int
+    vira_meia_noite: bool
+    ativo: bool
+    operadores: int = 0
+
+
+class OperadorIn(BaseModel):
+    matricula: str = Field(min_length=1, max_length=20)
+    nome: str = Field(min_length=2, max_length=120)
+    turno_id: str
+    setor_id: str
+    ativo: bool = True
+
+    _valida_matricula = field_validator("matricula")(_codigo)
+    _valida_nome = field_validator("nome")(_texto)
+
+
+class OperadorOut(BaseModel):
+    id: str
+    matricula: str
+    nome: str
+    turno_id: str
+    turno_nome: str
+    turno_horario: str
+    setor_id: str
+    setor_nome: str
+    ativo: bool
+
+
+# ---------- Motivos de parada e de refugo ----------
+
+
+class MotivoParadaIn(BaseModel):
+    codigo: str = Field(min_length=1, max_length=10)
+    descricao: str = Field(min_length=2, max_length=120)
+    tipo: TipoParada
+    ativo: bool = True
+
+    _valida_codigo = field_validator("codigo")(_codigo)
+    _valida_descricao = field_validator("descricao")(_texto)
+
+
+class MotivoParadaOut(BaseModel):
+    id: str
+    codigo: str
+    descricao: str
+    tipo: str
+    tipo_label: str
+    planejada: bool
+    ativo: bool
+
+
+class MotivoRefugoIn(BaseModel):
+    codigo: str = Field(min_length=1, max_length=10)
+    descricao: str = Field(min_length=2, max_length=120)
+    categoria: CategoriaRefugo
+    ativo: bool = True
+
+    _valida_codigo = field_validator("codigo")(_codigo)
+    _valida_descricao = field_validator("descricao")(_texto)
+
+
+class MotivoRefugoOut(BaseModel):
+    id: str
+    codigo: str
+    descricao: str
+    categoria: str
+    categoria_label: str
+    ativo: bool
+
+
+class OpcaoOut(BaseModel):
+    valor: str
+    label: str
+
+
+class OpcoesMotivosOut(BaseModel):
+    tipos_parada: list[OpcaoOut]
+    categorias_refugo: list[OpcaoOut]

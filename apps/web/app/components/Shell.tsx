@@ -23,10 +23,34 @@ const ICONES: Record<string, React.ReactNode> = {
       <rect x="3.5" y="13" width="7" height="7.5" rx="1.5" />
     </svg>
   ),
+  kanban: (
+    <svg width="18" height="18" viewBox="0 0 24 24" {...stroke}>
+      <rect x="3" y="4" width="5" height="16" rx="1.2" />
+      <rect x="10" y="4" width="5" height="10" rx="1.2" />
+      <rect x="17" y="4" width="4" height="13" rx="1.2" />
+    </svg>
+  ),
   maquinas: (
     <svg width="18" height="18" viewBox="0 0 24 24" {...stroke}>
       <rect x="3" y="9" width="18" height="11" rx="1.5" />
       <path d="M7 9V5h4v4M15 13h3M6 13h5v4H6z" />
+    </svg>
+  ),
+  produtos: (
+    <svg width="18" height="18" viewBox="0 0 24 24" {...stroke}>
+      <path d="M4 7h16M4 7v4h16V7M6 11v8M18 11v8M4 19h16" />
+    </svg>
+  ),
+  equipe: (
+    <svg width="18" height="18" viewBox="0 0 24 24" {...stroke}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7v5l3.5 2" />
+    </svg>
+  ),
+  motivos: (
+    <svg width="18" height="18" viewBox="0 0 24 24" {...stroke}>
+      <path d="M12 3.5 21 19.5H3z" />
+      <path d="M12 10v4.5M12 17.2v.1" />
     </svg>
   ),
   usuarios: (
@@ -42,7 +66,11 @@ const ICONES: Record<string, React.ReactNode> = {
 // Rotas protegidas: a tela exigida para abrir cada uma.
 const TELA_DA_ROTA: [string, string][] = [
   ["/painel", "painel"],
+  ["/kanban", "kanban"],
   ["/maquinas", "maquinas"],
+  ["/produtos", "produtos"],
+  ["/equipe", "equipe"],
+  ["/motivos", "motivos"],
   ["/usuarios", "usuarios"],
 ];
 

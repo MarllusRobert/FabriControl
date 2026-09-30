@@ -39,6 +39,15 @@ def require_tela(tela: str):
     return dependency
 
 
+def require_alguma(*telas: str):
+    def dependency(user: Usuario = Depends(get_current_user)) -> Usuario:
+        if not any(tela in user.telas for tela in telas):
+            raise _negar()
+        return user
+
+    return dependency
+
+
 def require_acao(acao: str):
     def dependency(user: Usuario = Depends(get_current_user)) -> Usuario:
         if acao not in user.acoes:

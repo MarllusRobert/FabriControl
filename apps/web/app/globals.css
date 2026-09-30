@@ -445,6 +445,16 @@ textarea {
   background: #eef1f4;
 }
 
+.badge.planejada {
+  color: #2f6fb3;
+  background: #e7f0fa;
+}
+
+.badge.nao_planejada {
+  color: #c0392b;
+  background: #fbeaea;
+}
+
 .bar-row {
   display: grid;
   grid-template-columns: 110px 1fr 36px;
@@ -534,6 +544,377 @@ textarea {
   margin: 0;
   padding-left: 16px;
   color: var(--muted);
+}
+
+.modal.wide {
+  width: min(860px, 100%);
+}
+
+.modal h3.sub {
+  margin: 22px 0 2px;
+  font-size: 15px;
+}
+
+.rota {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.rota span {
+  background: #eef1f4;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12.5px;
+}
+
+.rota span + span::before {
+  content: "→ ";
+  color: var(--muted);
+}
+
+.roteiro {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.roteiro-linha {
+  display: grid;
+  grid-template-columns: 28px 170px 1fr 90px auto auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.roteiro-linha select,
+.roteiro-linha input {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.roteiro-linha .seq {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--side);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ---------- Kanban ---------- */
+
+.aviso-ok {
+  background: #e6f5ec;
+  color: #17683a;
+  border: 1px solid #bfe3cc;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.main > .error {
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.board {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  align-items: flex-start;
+}
+
+.coluna {
+  flex: 0 0 290px;
+  background: #e4e8ec;
+  border-radius: 12px;
+  padding: 12px;
+  border: 2px dashed transparent;
+  min-height: 260px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.coluna.planejadas {
+  background: #e9ebf0;
+}
+
+.coluna.concluidas {
+  background: #e3f0e8;
+}
+
+.coluna.alvo {
+  border-color: var(--accent);
+  background: #fbf1df;
+}
+
+.coluna header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.coluna header strong {
+  font-size: 14.5px;
+}
+
+.coluna .passo {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--side);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  margin-right: 8px;
+}
+
+.coluna .contagem {
+  background: #fff;
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.coluna-info {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.cards {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.vazio {
+  text-align: center;
+  color: #9aa6b1;
+  margin: 18px 0;
+}
+
+.card-op {
+  background: #fff;
+  border-radius: 10px;
+  padding: 11px 12px;
+  box-shadow: 0 1px 2px rgba(20, 30, 40, 0.08);
+  border-left: 4px solid #c3ccd4;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.card-op[draggable="true"] {
+  cursor: grab;
+}
+
+.card-op.prioridade-alta {
+  border-left-color: var(--accent);
+}
+
+.card-op.prioridade-urgente {
+  border-left-color: var(--danger);
+}
+
+.card-op.pausada {
+  background: #fff8ec;
+}
+
+.card-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.op-numero {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
+.chip {
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.chip.urgente {
+  background: #fdecea;
+  color: var(--danger);
+}
+
+.chip.alta {
+  background: #fdf3e2;
+  color: #b46a06;
+}
+
+.chip.baixa {
+  background: #eef1f4;
+  color: var(--muted);
+}
+
+.card-produto {
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 13.5px;
+}
+
+.card-desc {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.card-dados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+
+.card-dados .atraso {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.trilha {
+  display: flex;
+  gap: 3px;
+  margin: 6px 0 2px;
+}
+
+.passo-trilha {
+  flex: 1;
+  font-size: 10.5px;
+  text-align: center;
+  padding: 3px 2px;
+  border-radius: 4px;
+  background: #eef1f4;
+  color: #8a96a2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.passo-trilha.concluida {
+  background: #d7efe0;
+  color: #17683a;
+}
+
+.passo-trilha.na_fila {
+  background: #fff;
+  color: #b46a06;
+  box-shadow: inset 0 0 0 1.5px var(--accent);
+}
+
+.passo-trilha.em_andamento {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.card-estado {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.card-estado.em_andamento {
+  color: #9a5a05;
+  font-weight: 600;
+}
+
+.card-estado.pausa {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.card-estado.ok {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.card-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.card-links {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.card-links button {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.card-links button:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.escolha-maquinas {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.escolha-maquinas .btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  font-size: 15px;
+}
+
+.escolha-maquinas .btn span {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.linha-tempo {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 6px;
+  font-size: 13.5px;
+}
+
+.linha-tempo li {
+  border-left: 3px solid var(--line);
+  padding-left: 10px;
 }
 
 /* ---------- Login ---------- */

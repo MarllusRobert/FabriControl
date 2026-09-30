@@ -9,6 +9,11 @@ from app.config import get_settings
 from app.db import check_database, init_db
 from app.routers.auth import router as auth_router
 from app.routers.cadastros import router as cadastros_router
+from app.routers.equipe import router as equipe_router
+from app.routers.kanban import router as kanban_router
+from app.routers.motivos import router as motivos_router
+from app.routers.ordens import router as ordens_router
+from app.routers.produtos import router as produtos_router
 from app.routers.usuarios import router as usuarios_router
 
 settings = get_settings()
@@ -40,6 +45,11 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(usuarios_router)
 app.include_router(cadastros_router)
+app.include_router(produtos_router)
+app.include_router(ordens_router)
+app.include_router(kanban_router)
+app.include_router(equipe_router)
+app.include_router(motivos_router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
