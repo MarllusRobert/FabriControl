@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.constants import PERFIS
@@ -100,3 +100,68 @@ class RoteiroEtapa(Base):
     tempo_padrao_seg: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     setor: Mapped[Setor] = relationship(lazy="joined")
+
+
+class OrdemProducao(Base):
+    __tablename__ = "ordens_producao"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    numero: Mapped[int] = mapped_column(Integer, unique=True)
+    produto_id: Mapped[str] = mapped_column(String(36), ForeignKey("produtos.id", ondelete="RESTRICT"), index=True)
+    quantidade: Mapped[int] = mapped_column(Integer)
+    prazo: Mapped[date | None] = mapped_column(Date, nullable=True)
+    prioridade: Mapped[str] = mapped_column(String(10), default="normal")
+    status: Mapped[str] = mapped_column(String(15), default="planejada", index=True)
+    motivo_pausa: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    observacao: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    criado_por_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    concluida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    produto: Mapped[Produto] = relationship(lazy="joined")
+    # A ordem guarda a própria cópia do roteiro: mudar o produto depois não altera ordens já criadas.
+    etapas: Mapped[list["OrdemEtapa"]] = relationship(
+        order_by="OrdemEtapa.sequencia", cascade="all, delete-orphan", lazy="selectin"
+    )
+    eventos: Mapped[list["OrdemEvento"]] = relationship(
+        order_by="OrdemEvento.em", cascade="all, delete-orphan", lazy="select"
+    )
+
+    @property
+    def etapa_atual(self) -> "OrdemEtapa | None":
+        return next((e for e in self.etapas if e.status != "concluida"), None)
+
+
+class OrdemEtapa(Base):
+    __tablename__ = "ordem_etapas"
+    __table_args__ = (UniqueConstraint("ordem_id", "sequencia", name="uq_ordem_etapa_sequencia"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    ordem_id: Mapped[str] = mapped_column(String(36), ForeignKey("ordens_producao.id", ondelete="CASCADE"), index=True)
+    sequencia: Mapped[int] = mapped_column(Integer)
+    setor_id: Mapped[str] = mapped_column(String(36), ForeignKey("setores.id", ondelete="RESTRICT"))
+    operacao: Mapped[str] = mapped_column(String(160))
+    tempo_padrao_seg: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    # aguardando → na_fila → em_andamento → concluida
+    status: Mapped[str] = mapped_column(String(15), default="aguardando")
+    maquina_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("maquinas.id", ondelete="SET NULL"), nullable=True)
+    iniciada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    concluida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    setor: Mapped[Setor] = relationship(lazy="joined")
+    maquina: Mapped[Maquina | None] = relationship(lazy="joined")
+
+
+class OrdemEvento(Base):
+    """Histórico da ordem: quem fez o quê e quando (rastreabilidade)."""
+
+    __tablename__ = "ordem_eventos"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    ordem_id: Mapped[str] = mapped_column(String(36), ForeignKey("ordens_producao.id", ondelete="CASCADE"), index=True)
+    em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    usuario_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    tipo: Mapped[str] = mapped_column(String(20))
+    descricao: Mapped[str] = mapped_column(String(300))
+
+    usuario: Mapped[Usuario | None] = relationship(lazy="joined")

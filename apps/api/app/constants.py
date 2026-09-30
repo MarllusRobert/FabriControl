@@ -4,6 +4,7 @@ TZ = ZoneInfo("America/Sao_Paulo")
 
 TELAS_LABEL = {
     "painel": "Painel da fábrica",
+    "kanban": "Kanban da produção",
     "maquinas": "Máquinas e centros de trabalho",
     "produtos": "Produtos e roteiros de fabricação",
     "usuarios": "Usuários",
@@ -11,6 +12,8 @@ TELAS_LABEL = {
 
 ACOES_LABEL = {
     "editar_cadastros": "Cadastrar e editar máquinas, centros de trabalho e produtos",
+    "planejar_producao": "Criar, liberar e cancelar ordens de produção",
+    "movimentar_producao": "Iniciar, concluir e pausar etapas no Kanban",
     "gerenciar_usuarios": "Cadastrar usuários e definir perfis",
 }
 
@@ -23,28 +26,29 @@ PERFIS = {
     },
     "pcp": {
         "label": "PCP (planejamento)",
-        "telas": ["painel", "maquinas", "produtos"],
-        "acoes": ["editar_cadastros"],
+        "telas": ["painel", "kanban", "maquinas", "produtos"],
+        "acoes": ["editar_cadastros", "planejar_producao", "movimentar_producao"],
     },
     "supervisor": {
         "label": "Supervisor de produção",
-        "telas": ["painel", "maquinas", "produtos"],
-        "acoes": [],
+        "telas": ["painel", "kanban", "maquinas", "produtos"],
+        "acoes": ["movimentar_producao"],
     },
     "operador": {
         "label": "Operador",
-        "telas": ["maquinas"],
-        "acoes": [],
+        "telas": ["kanban", "maquinas"],
+        "acoes": ["movimentar_producao"],
     },
     "qualidade": {
         "label": "Qualidade",
-        "telas": ["painel", "maquinas", "produtos"],
+        "telas": ["painel", "kanban", "maquinas", "produtos"],
         "acoes": [],
     },
 }
 
 MENU = [
     ("painel", "Painel", "/painel"),
+    ("kanban", "Kanban", "/kanban"),
     ("maquinas", "Máquinas", "/maquinas"),
     ("produtos", "Produtos", "/produtos"),
     ("usuarios", "Usuários", "/usuarios"),
@@ -57,6 +61,25 @@ STATUS_MAQUINA = {
 }
 # Só máquina ativa pode receber ordem de produção.
 STATUS_RECEBE_ORDEM = ("ativa",)
+
+STATUS_ORDEM = {
+    "planejada": "Planejada",
+    "liberada": "Liberada",
+    "em_producao": "Em produção",
+    "pausada": "Pausada",
+    "concluida": "Concluída",
+    "cancelada": "Cancelada",
+}
+ORDEM_ABERTA = ("liberada", "em_producao", "pausada")
+
+STATUS_ETAPA = {
+    "aguardando": "Aguardando",
+    "na_fila": "Na fila",
+    "em_andamento": "Em andamento",
+    "concluida": "Concluída",
+}
+
+PRIORIDADES = {"baixa": "Baixa", "normal": "Normal", "alta": "Alta", "urgente": "Urgente"}
 
 
 def menu_for(telas: list[str]) -> list[dict[str, str]]:

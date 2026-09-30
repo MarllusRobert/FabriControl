@@ -15,7 +15,7 @@ def test_setup_cria_administrador_uma_vez_so(client):
     assert resp.status_code == 200, resp.text
     user = resp.json()["user"]
     assert user["perfil"] == "administrador"
-    assert [m["tela"] for m in user["menu"]] == ["painel", "maquinas", "produtos", "usuarios"]
+    assert [m["tela"] for m in user["menu"]] == ["painel", "kanban", "maquinas", "produtos", "usuarios"]
     assert client.get("/setup/status").json() == {"needs_setup": False}
     assert client.post("/setup", json=SETUP).status_code == 409
 
@@ -79,10 +79,10 @@ def test_troca_de_senha_derruba_sessoes_antigas(client, usuario):
 @pytest.mark.parametrize(
     ("perfil", "menu"),
     [
-        ("pcp", ["painel", "maquinas", "produtos"]),
-        ("supervisor", ["painel", "maquinas", "produtos"]),
-        ("operador", ["maquinas"]),
-        ("qualidade", ["painel", "maquinas", "produtos"]),
+        ("pcp", ["painel", "kanban", "maquinas", "produtos"]),
+        ("supervisor", ["painel", "kanban", "maquinas", "produtos"]),
+        ("operador", ["kanban", "maquinas"]),
+        ("qualidade", ["painel", "kanban", "maquinas", "produtos"]),
     ],
 )
 def test_menu_por_perfil(client, usuario, perfil, menu):

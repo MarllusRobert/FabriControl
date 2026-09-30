@@ -122,6 +122,66 @@ def setor(client, admin) -> dict:
 
 
 @pytest.fixture
+def fluxo(client, admin) -> dict[str, dict]:
+    """Fábrica de perfis: Desbobinamento → Corte → Dobra, com as máquinas de cada centro."""
+    setores = {}
+    for codigo, nome, ordem in [("DES", "Desbobinamento", 1), ("COR", "Corte", 2), ("DOB", "Dobra", 3)]:
+        resp = client.post("/setores", headers=admin.headers, json={"codigo": codigo, "nome": nome, "ordem": ordem})
+        assert resp.status_code == 201, resp.text
+        setores[codigo] = resp.json()
+    maquinas = {}
+    for codigo, nome, setor in [
+        ("DES-01", "Desbobinador", "DES"),
+        ("COR-01", "Guilhotina", "COR"),
+        ("COR-02", "Laser", "COR"),
+        ("DOB-01", "Dobradeira CNC", "DOB"),
+    ]:
+        resp = client.post(
+            "/maquinas",
+            headers=admin.headers,
+            json={"codigo": codigo, "nome": nome, "setor_id": setores[setor]["id"], "ciclo_padrao_seg": 20},
+        )
+        assert resp.status_code == 201, resp.text
+        maquinas[codigo] = resp.json()
+    return {**setores, "maquinas": maquinas}
+
+
+def perfil_u(fluxo: dict, **extra) -> dict:
+    return {
+        "codigo": "pu-100-6",
+        "descricao": "Perfil U 100x40x2,00 mm - 6 m",
+        "comprimento_mm": 6000,
+        "roteiro": [
+            {"setor_id": fluxo["DES"]["id"], "operacao": "Desbobinar e cortar chapa de 6 m", "tempo_padrao_seg": 40},
+            {"setor_id": fluxo["COR"]["id"], "operacao": "Guilhotina: cortar tiras de 180 mm", "tempo_padrao_seg": 12},
+            {"setor_id": fluxo["DOB"]["id"], "operacao": "Dobrar o perfil U", "tempo_padrao_seg": 25},
+        ],
+        **extra,
+    }
+
+
+@pytest.fixture
+def produto(client, admin, fluxo) -> dict:
+    resp = client.post("/produtos", headers=admin.headers, json=perfil_u(fluxo))
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+@pytest.fixture
+def nova_ordem(client, admin, produto):
+    def criar(liberar: bool = False, **extra) -> dict:
+        payload = {"produto_id": produto["id"], "quantidade": 500, **extra}
+        resp = client.post("/ordens", headers=admin.headers, json=payload)
+        assert resp.status_code == 201, resp.text
+        ordem = resp.json()
+        if liberar:
+            ordem = client.post(f"/ordens/{ordem['id']}/liberar", headers=admin.headers).json()
+        return ordem
+
+    return criar
+
+
+@pytest.fixture
 def nova_maquina(client, admin, setor):
     seq = 0
 

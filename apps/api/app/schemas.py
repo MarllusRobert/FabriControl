@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -187,6 +187,74 @@ class ProdutoOut(BaseModel):
     comprimento_mm: int | None
     ativo: bool
     roteiro: list[RoteiroOut]
+
+
+Prioridade = Literal["baixa", "normal", "alta", "urgente"]
+
+
+class OrdemIn(BaseModel):
+    produto_id: str
+    quantidade: int = Field(gt=0, le=1_000_000)
+    prazo: date | None = None
+    prioridade: Prioridade = "normal"
+    observacao: str | None = Field(default=None, max_length=500)
+
+
+class MaquinaEscolhaIn(BaseModel):
+    maquina_id: str | None = None
+
+
+class MotivoIn(BaseModel):
+    motivo: str = Field(min_length=3, max_length=300)
+
+    _valida_motivo = field_validator("motivo")(_texto)
+
+
+class OrdemEtapaOut(BaseModel):
+    sequencia: int
+    setor_id: str
+    setor_nome: str
+    operacao: str
+    status: str
+    status_label: str
+    maquina_id: str | None
+    maquina_codigo: str | None
+    iniciada_em: datetime | None
+    concluida_em: datetime | None
+
+
+class OrdemOut(BaseModel):
+    id: str
+    numero: int
+    produto_id: str
+    produto_codigo: str
+    produto_descricao: str
+    comprimento_mm: int | None
+    unidade: str
+    quantidade: int
+    prazo: date | None
+    prioridade: str
+    status: str
+    status_label: str
+    atrasada: bool
+    motivo_pausa: str | None
+    observacao: str | None
+    etapa_atual: int | None
+    total_etapas: int
+    etapas: list[OrdemEtapaOut]
+    criado_em: datetime
+    concluida_em: datetime | None
+
+
+class OrdemEventoOut(BaseModel):
+    em: datetime
+    tipo: str
+    descricao: str
+    usuario_nome: str | None
+
+
+class OrdemDetalheOut(OrdemOut):
+    eventos: list[OrdemEventoOut]
 
 
 class MaquinaOut(BaseModel):

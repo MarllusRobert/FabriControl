@@ -1,29 +1,4 @@
-import pytest
-
-
-@pytest.fixture
-def fluxo(client, admin) -> dict[str, dict]:
-    """Desbobinamento → Corte → Dobra, como na fábrica de perfis."""
-    setores = {}
-    for codigo, nome, ordem in [("DES", "Desbobinamento", 1), ("COR", "Corte", 2), ("DOB", "Dobra", 3)]:
-        resp = client.post("/setores", headers=admin.headers, json={"codigo": codigo, "nome": nome, "ordem": ordem})
-        assert resp.status_code == 201, resp.text
-        setores[codigo] = resp.json()
-    return setores
-
-
-def perfil_u(fluxo: dict, **extra) -> dict:
-    return {
-        "codigo": "pu-100-6",
-        "descricao": "Perfil U 100x40x2,00 mm - 6 m",
-        "comprimento_mm": 6000,
-        "roteiro": [
-            {"setor_id": fluxo["DES"]["id"], "operacao": "Desbobinar e cortar chapa de 6 m", "tempo_padrao_seg": 40},
-            {"setor_id": fluxo["COR"]["id"], "operacao": "Guilhotina: cortar tiras de 180 mm", "tempo_padrao_seg": 12},
-            {"setor_id": fluxo["DOB"]["id"], "operacao": "Dobrar o perfil U", "tempo_padrao_seg": 25},
-        ],
-        **extra,
-    }
+from conftest import perfil_u
 
 
 def test_setores_saem_na_ordem_do_fluxo(client, admin, fluxo):
