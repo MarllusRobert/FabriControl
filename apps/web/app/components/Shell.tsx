@@ -29,6 +29,11 @@ const ICONES: Record<string, React.ReactNode> = {
       <path d="M7 9V5h4v4M15 13h3M6 13h5v4H6z" />
     </svg>
   ),
+  produtos: (
+    <svg width="18" height="18" viewBox="0 0 24 24" {...stroke}>
+      <path d="M4 7h16M4 7v4h16V7M6 11v8M18 11v8M4 19h16" />
+    </svg>
+  ),
   usuarios: (
     <svg width="18" height="18" viewBox="0 0 24 24" {...stroke}>
       <circle cx="9" cy="7.5" r="3" />
@@ -43,6 +48,7 @@ const ICONES: Record<string, React.ReactNode> = {
 const TELA_DA_ROTA: [string, string][] = [
   ["/painel", "painel"],
   ["/maquinas", "maquinas"],
+  ["/produtos", "produtos"],
   ["/usuarios", "usuarios"],
 ];
 

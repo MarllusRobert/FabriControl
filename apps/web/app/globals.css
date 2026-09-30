@@ -536,6 +536,68 @@ textarea {
   color: var(--muted);
 }
 
+.modal.wide {
+  width: min(860px, 100%);
+}
+
+.modal h3.sub {
+  margin: 22px 0 2px;
+  font-size: 15px;
+}
+
+.rota {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.rota span {
+  background: #eef1f4;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 12.5px;
+}
+
+.rota span + span::before {
+  content: "→ ";
+  color: var(--muted);
+}
+
+.roteiro {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.roteiro-linha {
+  display: grid;
+  grid-template-columns: 28px 170px 1fr 90px auto auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.roteiro-linha select,
+.roteiro-linha input {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  min-width: 0;
+}
+
+.roteiro-linha .seq {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--side);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 /* ---------- Login ---------- */
 
 .auth {

@@ -103,6 +103,7 @@ class UsuarioUpdate(BaseModel):
 class SetorIn(BaseModel):
     codigo: str = Field(min_length=1, max_length=20)
     nome: str = Field(min_length=2, max_length=80)
+    ordem: int = Field(default=0, ge=0, le=99)
     ativo: bool = True
 
     _valida_codigo = field_validator("codigo")(_codigo)
@@ -113,6 +114,7 @@ class SetorOut(BaseModel):
     id: str
     codigo: str
     nome: str
+    ordem: int
     ativo: bool
     maquinas: int = 0
 
@@ -146,6 +148,45 @@ class MaquinaUpdate(BaseModel):
     @classmethod
     def valida_nome(cls, value: str | None) -> str | None:
         return None if value is None else _texto(value)
+
+
+class RoteiroIn(BaseModel):
+    setor_id: str
+    operacao: str = Field(min_length=2, max_length=160)
+    tempo_padrao_seg: float | None = Field(default=None, gt=0, le=86400)
+
+    _valida_operacao = field_validator("operacao")(_texto)
+
+
+class ProdutoIn(BaseModel):
+    codigo: str = Field(min_length=1, max_length=30)
+    descricao: str = Field(min_length=2, max_length=160)
+    unidade: str = Field(default="PC", min_length=1, max_length=6)
+    comprimento_mm: int | None = Field(default=None, gt=0, le=20000)
+    ativo: bool = True
+    roteiro: list[RoteiroIn] = Field(min_length=1, max_length=20)
+
+    _valida_codigo = field_validator("codigo")(_codigo)
+    _valida_descricao = field_validator("descricao")(_texto)
+    _valida_unidade = field_validator("unidade")(_codigo)
+
+
+class RoteiroOut(BaseModel):
+    sequencia: int
+    setor_id: str
+    setor_nome: str
+    operacao: str
+    tempo_padrao_seg: float | None
+
+
+class ProdutoOut(BaseModel):
+    id: str
+    codigo: str
+    descricao: str
+    unidade: str
+    comprimento_mm: int | None
+    ativo: bool
+    roteiro: list[RoteiroOut]
 
 
 class MaquinaOut(BaseModel):

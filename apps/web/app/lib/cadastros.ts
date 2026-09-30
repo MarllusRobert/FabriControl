@@ -10,9 +10,33 @@ export type Setor = {
   id: string;
   codigo: string;
   nome: string;
+  ordem: number;
   ativo: boolean;
   maquinas: number;
 };
+
+export type EtapaRoteiro = {
+  sequencia: number;
+  setor_id: string;
+  setor_nome: string;
+  operacao: string;
+  tempo_padrao_seg: number | null;
+};
+
+export type Produto = {
+  id: string;
+  codigo: string;
+  descricao: string;
+  unidade: string;
+  comprimento_mm: number | null;
+  ativo: boolean;
+  roteiro: EtapaRoteiro[];
+};
+
+export function comprimentoLabel(mm: number | null) {
+  if (!mm) return null;
+  return mm % 1000 === 0 ? `${mm / 1000} m` : `${numero(mm)} mm`;
+}
 
 export type Maquina = {
   id: string;

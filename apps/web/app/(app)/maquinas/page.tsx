@@ -280,6 +280,7 @@ function ListaSetores({ setores, podeEditar, onMudou }: { setores: Setor[]; pode
           <table className="table">
             <thead>
               <tr>
+                <th className="num">Fluxo</th>
                 <th>Código</th>
                 <th>Nome</th>
                 <th className="num">Máquinas</th>
@@ -290,6 +291,7 @@ function ListaSetores({ setores, podeEditar, onMudou }: { setores: Setor[]; pode
             <tbody>
               {setores.map((s) => (
                 <tr key={s.id}>
+                  <td className="num">{s.ordem}</td>
                   <td className="mono">{s.codigo}</td>
                   <td>{s.nome}</td>
                   <td className="num">{s.maquinas}</td>
@@ -326,6 +328,7 @@ function ListaSetores({ setores, podeEditar, onMudou }: { setores: Setor[]; pode
 function SetorForm({ setor, onClose, onSalvo }: { setor: Setor | null; onClose: () => void; onSalvo: () => void }) {
   const [codigo, setCodigo] = useState(setor?.codigo ?? "");
   const [nome, setNome] = useState(setor?.nome ?? "");
+  const [ordem, setOrdem] = useState(String(setor?.ordem ?? 0));
   const [ativo, setAtivo] = useState(setor?.ativo ?? true);
   const [erro, setErro] = useState("");
 
@@ -335,7 +338,7 @@ function SetorForm({ setor, onClose, onSalvo }: { setor: Setor | null; onClose: 
     try {
       await api(setor ? `/setores/${setor.id}` : "/setores", {
         method: setor ? "PUT" : "POST",
-        body: JSON.stringify({ codigo, nome, ativo }),
+        body: JSON.stringify({ codigo, nome, ordem: Number(ordem) || 0, ativo }),
       });
       onSalvo();
     } catch (err) {
@@ -356,6 +359,11 @@ function SetorForm({ setor, onClose, onSalvo }: { setor: Setor | null; onClose: 
           <label className="field">
             Nome
             <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Corte" required minLength={2} />
+          </label>
+          <label className="field">
+            Posição no fluxo da fábrica
+            <input type="number" min={0} max={99} value={ordem} onChange={(e) => setOrdem(e.target.value)} />
+            <span className="hint">Ordem das colunas no Kanban (ex.: 1 Desbobinamento, 2 Corte, 3 Dobra).</span>
           </label>
           <label className="field full" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />

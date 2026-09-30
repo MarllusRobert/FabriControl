@@ -5,11 +5,12 @@ TZ = ZoneInfo("America/Sao_Paulo")
 TELAS_LABEL = {
     "painel": "Painel da fábrica",
     "maquinas": "Máquinas e centros de trabalho",
+    "produtos": "Produtos e roteiros de fabricação",
     "usuarios": "Usuários",
 }
 
 ACOES_LABEL = {
-    "editar_cadastros": "Cadastrar e editar máquinas e centros de trabalho",
+    "editar_cadastros": "Cadastrar e editar máquinas, centros de trabalho e produtos",
     "gerenciar_usuarios": "Cadastrar usuários e definir perfis",
 }
 
@@ -22,12 +23,12 @@ PERFIS = {
     },
     "pcp": {
         "label": "PCP (planejamento)",
-        "telas": ["painel", "maquinas"],
+        "telas": ["painel", "maquinas", "produtos"],
         "acoes": ["editar_cadastros"],
     },
     "supervisor": {
         "label": "Supervisor de produção",
-        "telas": ["painel", "maquinas"],
+        "telas": ["painel", "maquinas", "produtos"],
         "acoes": [],
     },
     "operador": {
@@ -37,7 +38,7 @@ PERFIS = {
     },
     "qualidade": {
         "label": "Qualidade",
-        "telas": ["painel", "maquinas"],
+        "telas": ["painel", "maquinas", "produtos"],
         "acoes": [],
     },
 }
@@ -45,6 +46,7 @@ PERFIS = {
 MENU = [
     ("painel", "Painel", "/painel"),
     ("maquinas", "Máquinas", "/maquinas"),
+    ("produtos", "Produtos", "/produtos"),
     ("usuarios", "Usuários", "/usuarios"),
 ]
 
