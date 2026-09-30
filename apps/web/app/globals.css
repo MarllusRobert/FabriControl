@@ -445,6 +445,16 @@ textarea {
   background: #eef1f4;
 }
 
+.badge.planejada {
+  color: #2f6fb3;
+  background: #e7f0fa;
+}
+
+.badge.nao_planejada {
+  color: #c0392b;
+  background: #fbeaea;
+}
+
 .bar-row {
   display: grid;
   grid-template-columns: 110px 1fr 36px;

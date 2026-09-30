@@ -11,6 +11,8 @@ from app.constants import TZ
 from app.db import SessionLocal
 from app.models import (
     Maquina,
+    MotivoParada,
+    MotivoRefugo,
     Operador,
     OrdemEtapa,
     OrdemEvento,
@@ -101,6 +103,31 @@ OPERADORES = [
     ("1006", "Diego Carvalho", "T2", "DOB"),
     ("1007", "Anderson Pereira", "T3", "COR"),
     ("1008", "Lucas Ferreira", "T3", "DOB"),
+]
+
+# (código, descrição, tipo)
+MOTIVOS_PARADA = [
+    ("SET", "Setup / troca de ferramenta da dobradeira", "planejada"),
+    ("BOB", "Troca de bobina no desbobinador", "planejada"),
+    ("MPV", "Manutenção preventiva", "planejada"),
+    ("REF", "Refeição e troca de turno", "planejada"),
+    ("QUE", "Quebra de máquina", "nao_planejada"),
+    ("FMT", "Falta de material (bobina ou chapa)", "nao_planejada"),
+    ("FOP", "Falta de operador", "nao_planejada"),
+    ("ENE", "Falta de energia", "nao_planejada"),
+    ("AJU", "Ajuste de processo / regulagem", "nao_planejada"),
+]
+
+# (código, descrição, categoria)
+MOTIVOS_REFUGO = [
+    ("DIM", "Medida fora da tolerância", "dimensional"),
+    ("ANG", "Ângulo de dobra fora do especificado", "dimensional"),
+    ("COM", "Comprimento de corte errado", "dimensional"),
+    ("REB", "Rebarba no corte", "acabamento"),
+    ("RIS", "Riscos ou amassados", "manuseio"),
+    ("OXI", "Chapa oxidada ou com defeito", "material"),
+    ("ESP", "Espessura da bobina fora", "material"),
+    ("SET", "Peça perdida no setup", "processo"),
 ]
 
 # (produto, quantidade, prioridade, dias até o prazo, etapas concluídas, estado da etapa atual, máquinas usadas, motivo da pausa)
@@ -238,6 +265,17 @@ def carregar() -> dict[str, int]:
             if matricula not in matriculas:
                 db.add(Operador(matricula=matricula, nome=nome, turno_id=turnos[turno].id, setor_id=setores[setor].id))
                 novos["operadores"] += 1
+
+        for chave, modelo, lista, campo in [
+            ("motivos_parada", MotivoParada, MOTIVOS_PARADA, "tipo"),
+            ("motivos_refugo", MotivoRefugo, MOTIVOS_REFUGO, "categoria"),
+        ]:
+            existentes = set(db.scalars(select(modelo.codigo)).all())
+            novos[chave] = 0
+            for codigo, descricao, valor in lista:
+                if codigo not in existentes:
+                    db.add(modelo(codigo=codigo, descricao=descricao, **{campo: valor}))
+                    novos[chave] += 1
 
         novos["ordens"] = carregar_ordens(db)
         db.commit()

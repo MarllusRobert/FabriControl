@@ -118,6 +118,28 @@ class Operador(Base):
     setor: Mapped[Setor] = relationship(lazy="joined")
 
 
+class MotivoParada(Base):
+    __tablename__ = "motivos_parada"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    descricao: Mapped[str] = mapped_column(String(120), unique=True)
+    tipo: Mapped[str] = mapped_column(String(15))
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class MotivoRefugo(Base):
+    __tablename__ = "motivos_refugo"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    codigo: Mapped[str] = mapped_column(String(10), unique=True)
+    descricao: Mapped[str] = mapped_column(String(120), unique=True)
+    categoria: Mapped[str] = mapped_column(String(20))
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 class Produto(Base):
     __tablename__ = "produtos"
 

@@ -3,13 +3,17 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.constants import PERFIS, STATUS_MAQUINA
+from app.constants import CATEGORIAS_REFUGO, PERFIS, STATUS_MAQUINA, TIPOS_PARADA
 
 Perfil = Literal["administrador", "pcp", "supervisor", "operador", "qualidade"]
 StatusMaquina = Literal["ativa", "manutencao", "inativa"]
+TipoParada = Literal["planejada", "nao_planejada"]
+CategoriaRefugo = Literal["dimensional", "acabamento", "material", "processo", "manuseio"]
 
 assert set(Perfil.__args__) == set(PERFIS)
 assert set(StatusMaquina.__args__) == set(STATUS_MAQUINA)
+assert set(TipoParada.__args__) == set(TIPOS_PARADA)
+assert set(CategoriaRefugo.__args__) == set(CATEGORIAS_REFUGO)
 
 
 def _email(value: str) -> str:
@@ -324,3 +328,55 @@ class OperadorOut(BaseModel):
     setor_id: str
     setor_nome: str
     ativo: bool
+
+
+# ---------- Motivos de parada e de refugo ----------
+
+
+class MotivoParadaIn(BaseModel):
+    codigo: str = Field(min_length=1, max_length=10)
+    descricao: str = Field(min_length=2, max_length=120)
+    tipo: TipoParada
+    ativo: bool = True
+
+    _valida_codigo = field_validator("codigo")(_codigo)
+    _valida_descricao = field_validator("descricao")(_texto)
+
+
+class MotivoParadaOut(BaseModel):
+    id: str
+    codigo: str
+    descricao: str
+    tipo: str
+    tipo_label: str
+    planejada: bool
+    ativo: bool
+
+
+class MotivoRefugoIn(BaseModel):
+    codigo: str = Field(min_length=1, max_length=10)
+    descricao: str = Field(min_length=2, max_length=120)
+    categoria: CategoriaRefugo
+    ativo: bool = True
+
+    _valida_codigo = field_validator("codigo")(_codigo)
+    _valida_descricao = field_validator("descricao")(_texto)
+
+
+class MotivoRefugoOut(BaseModel):
+    id: str
+    codigo: str
+    descricao: str
+    categoria: str
+    categoria_label: str
+    ativo: bool
+
+
+class OpcaoOut(BaseModel):
+    valor: str
+    label: str
+
+
+class OpcoesMotivosOut(BaseModel):
+    tipos_parada: list[OpcaoOut]
+    categorias_refugo: list[OpcaoOut]
