@@ -10,6 +10,7 @@ from app.db import check_database, init_db
 from app.routers.auth import router as auth_router
 from app.routers.cadastros import router as cadastros_router
 from app.routers.equipe import router as equipe_router
+from app.routers.fila import router as fila_router
 from app.routers.kanban import router as kanban_router
 from app.routers.motivos import router as motivos_router
 from app.routers.operacao import router as operacao_router
@@ -50,6 +51,7 @@ app.include_router(cadastros_router)
 app.include_router(produtos_router)
 app.include_router(ordens_router)
 app.include_router(kanban_router)
+app.include_router(fila_router)
 app.include_router(equipe_router)
 app.include_router(motivos_router)
 app.include_router(operacao_router)

@@ -241,6 +241,8 @@ class OrdemEtapa(Base):
     operador_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("operadores.id", ondelete="SET NULL"), nullable=True
     )
+    # Posição na fila do centro definida pelo PCP; vazia = ordena por prioridade e prazo.
+    fila_posicao: Mapped[int | None] = mapped_column(Integer, nullable=True)
     iniciada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     concluida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

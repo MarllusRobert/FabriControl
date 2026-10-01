@@ -1,26 +1,23 @@
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.constants import ORDEM_ABERTA
 from app.db import get_db
 from app.deps import require_acao, require_tela
+from app.fila import Par, em_andamento, etapas_atuais, fila_da_maquina
 from app.models import (
     Apontamento,
     Maquina,
     MotivoParada,
     MotivoRefugo,
     Operador,
-    OrdemEtapa,
     OrdemEvento,
-    OrdemProducao,
     Parada,
     Usuario,
 )
 from app.present import etapa_fila_out, maquina_out, operador_out, parada_out
-from app.routers.kanban import PESO_PRIORIDADE
 from app.routers.motivos import parada_out as parada_motivo_out
 from app.routers.motivos import refugo_out
 from app.routers.ordens import executar_conclusao, executar_inicio
@@ -37,9 +34,6 @@ from app.schemas import (
 router = APIRouter(prefix="/operacao", tags=["operacao"])
 ver = require_tela("operacao")
 movimentar = require_acao("movimentar_producao")
-
-Par = tuple[OrdemProducao, OrdemEtapa]
-_NUNCA = datetime.max.replace(tzinfo=timezone.utc)
 
 
 def _maquina(db: Session, maquina_id: str) -> Maquina:
@@ -58,20 +52,8 @@ def _operador(db: Session, operador_id: str) -> Operador:
 
 def _estado(db: Session, maquina: Maquina) -> tuple[Par | None, list[Par]]:
     """Etapa rodando na máquina e fila de etapas do centro dela que podem começar ali."""
-    abertas = db.scalars(select(OrdemProducao).where(OrdemProducao.status.in_(ORDEM_ABERTA))).all()
-    atual: Par | None = None
-    fila: list[Par] = []
-    for ordem in abertas:
-        etapa = ordem.etapa_atual
-        if etapa is None or etapa.setor_id != maquina.setor_id:
-            continue
-        if etapa.status == "em_andamento" and etapa.maquina_id == maquina.id:
-            if atual is None or (etapa.iniciada_em or _NUNCA) < (atual[1].iniciada_em or _NUNCA):
-                atual = (ordem, etapa)
-        elif etapa.status == "na_fila" and ordem.status != "pausada" and etapa.maquina_id in (None, maquina.id):
-            fila.append((ordem, etapa))
-    fila.sort(key=lambda p: (PESO_PRIORIDADE.get(p[0].prioridade, 9), p[0].prazo or date.max, p[0].numero))
-    return atual, fila
+    pares = etapas_atuais(db)
+    return em_andamento(pares, maquina), fila_da_maquina(pares, maquina)
 
 
 def _parada_aberta(db: Session, maquina: Maquina) -> Parada | None:

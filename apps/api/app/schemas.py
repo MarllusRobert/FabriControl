@@ -457,3 +457,37 @@ class PainelMaquinaOut(BaseModel):
     fila: list[EtapaFilaOut]
     parada: ParadaOut | None = None
     atualizado_em: datetime
+
+
+# ---------- Fila por máquina ----------
+
+
+class FilaMaquinaOut(BaseModel):
+    maquina: MaquinaOut
+    parada: bool
+    atual: EtapaFilaOut | None
+    fila: list[EtapaFilaOut]
+    carga_min: float
+
+
+class FilaSetorOut(BaseModel):
+    setor_id: str
+    setor_nome: str
+    maquinas: list[FilaMaquinaOut]
+    a_distribuir: list[EtapaFilaOut]
+    carga_a_distribuir_min: float
+
+
+class FilaOut(BaseModel):
+    setores: list[FilaSetorOut]
+    atualizado_em: datetime
+
+
+class FilaMaquinaIn(BaseModel):
+    maquina_id: str
+    ordens: list[str] = Field(max_length=500)
+
+
+class FilaSetorIn(BaseModel):
+    maquinas: list[FilaMaquinaIn] = Field(max_length=50)
+    a_distribuir: list[str] = Field(default_factory=list, max_length=500)

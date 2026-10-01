@@ -6,6 +6,7 @@ TELAS_LABEL = {
     "painel": "Painel da fábrica",
     "operacao": "Tela do operador na máquina",
     "kanban": "Kanban da produção",
+    "fila": "Fila de produção por máquina",
     "maquinas": "Máquinas e centros de trabalho",
     "produtos": "Produtos e roteiros de fabricação",
     "equipe": "Turnos e operadores",
@@ -30,12 +31,12 @@ PERFIS = {
     },
     "pcp": {
         "label": "PCP (planejamento)",
-        "telas": ["painel", "kanban", "maquinas", "produtos", "equipe", "motivos"],
+        "telas": ["painel", "kanban", "fila", "maquinas", "produtos", "equipe", "motivos"],
         "acoes": ["editar_cadastros", "planejar_producao", "movimentar_producao", "gerenciar_equipe"],
     },
     "supervisor": {
         "label": "Supervisor de produção",
-        "telas": ["painel", "operacao", "kanban", "maquinas", "produtos", "equipe", "motivos"],
+        "telas": ["painel", "operacao", "kanban", "fila", "maquinas", "produtos", "equipe", "motivos"],
         "acoes": ["movimentar_producao", "gerenciar_equipe"],
     },
     "operador": {
@@ -54,6 +55,7 @@ MENU = [
     ("painel", "Painel", "/painel"),
     ("operacao", "Operação", "/operacao"),
     ("kanban", "Kanban", "/kanban"),
+    ("fila", "Fila", "/fila"),
     ("maquinas", "Máquinas", "/maquinas"),
     ("produtos", "Produtos", "/produtos"),
     ("equipe", "Equipe", "/equipe"),

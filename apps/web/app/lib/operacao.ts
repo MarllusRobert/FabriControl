@@ -53,6 +53,24 @@ export type PainelMaquina = {
   atualizado_em: string;
 };
 
+export type FilaMaquina = {
+  maquina: Maquina;
+  parada: boolean;
+  atual: EtapaFila | null;
+  fila: EtapaFila[];
+  carga_min: number;
+};
+
+export type FilaSetor = {
+  setor_id: string;
+  setor_nome: string;
+  maquinas: FilaMaquina[];
+  a_distribuir: EtapaFila[];
+  carga_a_distribuir_min: number;
+};
+
+export type Fila = { setores: FilaSetor[]; atualizado_em: string };
+
 export type OperadorSessao = { id: string; nome: string; matricula: string };
 
 export function horasLabel(minutos: number) {

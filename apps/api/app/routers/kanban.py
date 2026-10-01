@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.constants import ORDEM_ABERTA, STATUS_RECEBE_ORDEM
 from app.db import get_db
 from app.deps import require_tela
+from app.fila import PESO_PRIORIDADE
 from app.models import Maquina, OrdemEtapa, OrdemProducao, Produto, RoteiroEtapa, Setor, Usuario
 from app.present import ordem_out
 from app.schemas import OrdemOut
@@ -17,7 +18,6 @@ ver = require_tela("kanban")
 
 DIAS_CONCLUIDAS = 7
 LIMITE_CONCLUIDAS = 30
-PESO_PRIORIDADE = {"urgente": 0, "alta": 1, "normal": 2, "baixa": 3}
 
 
 class MaquinaResumo(BaseModel):
