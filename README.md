@@ -34,15 +34,26 @@ No primeiro acesso a tela pede para criar o administrador. Para carregar centros
 docker compose exec api python -m app.demo
 ```
 
+## Simulador de CLP
+
+Gera dados de máquina minuto a minuto (estado, alarme, ciclos, peças boas e refugo, contador do CLP), um CSV por máquina e por dia, para testar o pipeline de dados sem fábrica real. Parte das linhas sai suja de propósito (lacunas, duplicatas, linhas fora de ordem, estados fora do padrão, valores negativos e picos, nulos, timestamps em outro formato, vírgula decimal, cabeçalho repetido).
+
+```bash
+docker compose exec api python -m app.simulador_clp --maquinas 5 --dias 7 --sujeira 0.01 --semente 42
+docker compose exec api python -m app.simulador_clp --do-banco --dias 30   # máquinas cadastradas
+```
+
+A saída fica em `apps/api/dados/clp/` (fora do git): `<MAQUINA>/<AAAA-MM-DD>.csv`, `gabarito.csv` (totais verdadeiros por máquina e dia, antes da sujeira), `anomalias.csv` (cada sujeira injetada) e `parametros.json`. Mesma semente, mesmos dados.
+
 ## Perfis de acesso
 
 | Perfil | Acessa |
 |---|---|
 | Administrador | Tudo, inclusive usuários |
-| PCP | Painel, máquinas (cadastra e edita) |
-| Supervisor | Painel, máquinas (consulta) |
-| Qualidade | Painel, máquinas (consulta) |
-| Operador | Máquinas (consulta); apontamento nas próximas sprints |
+| PCP | Painel, Kanban, Fila por máquina (sequencia), cadastros, equipe e motivos |
+| Supervisor | Painel, tela do operador, Kanban, Fila (consulta), equipe e motivos |
+| Operador | Tela do operador (inicia, aponta, registra paradas), Kanban e máquinas |
+| Qualidade | Painel, Kanban, máquinas, produtos e motivos (consulta) |
 
 Senhas com bcrypt, token JWT com validade, bloqueio após 5 tentativas erradas e troca de senha que encerra as sessões antigas.
 

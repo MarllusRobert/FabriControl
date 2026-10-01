@@ -223,6 +223,9 @@ class OrdemEtapaOut(BaseModel):
     status_label: str
     maquina_id: str | None
     maquina_codigo: str | None
+    operador_nome: str | None = None
+    boas: int = 0
+    refugo: int = 0
     iniciada_em: datetime | None
     concluida_em: datetime | None
 
@@ -380,3 +383,111 @@ class OpcaoOut(BaseModel):
 class OpcoesMotivosOut(BaseModel):
     tipos_parada: list[OpcaoOut]
     categorias_refugo: list[OpcaoOut]
+
+
+# ---------- Operação na máquina ----------
+
+
+class OperacaoIn(BaseModel):
+    operador_id: str
+    ordem_id: str | None = None
+
+
+class EtapaFilaOut(BaseModel):
+    ordem_id: str
+    ordem_numero: int
+    ordem_status: str
+    motivo_pausa: str | None
+    produto_codigo: str
+    produto_descricao: str
+    unidade: str
+    quantidade: int
+    prioridade: str
+    prazo: date | None
+    atrasada: bool
+    sequencia: int
+    total_etapas: int
+    operacao: str
+    proximo_setor: str | None
+    status: str
+    carga_min: float
+    iniciada_em: datetime | None
+    operador_nome: str | None
+    entrada: int
+    boas: int
+    refugo: int
+    saldo: int
+
+
+class ApontamentoIn(BaseModel):
+    operador_id: str
+    boas: int = Field(default=0, ge=0, le=1_000_000)
+    refugo: int = Field(default=0, ge=0, le=1_000_000)
+    motivo_refugo_id: str | None = None
+
+
+class PararIn(BaseModel):
+    operador_id: str
+    motivo_parada_id: str
+    observacao: str | None = Field(default=None, max_length=300)
+
+
+class ParadaOut(BaseModel):
+    id: str
+    maquina_id: str
+    maquina_codigo: str
+    maquina_nome: str
+    setor_nome: str
+    motivo_codigo: str
+    motivo_descricao: str
+    tipo: str
+    tipo_label: str
+    planejada: bool
+    inicio: datetime
+    fim: datetime | None
+    duracao_min: float
+    operador_nome: str | None
+    ordem_numero: int | None
+    observacao: str | None
+
+
+class PainelMaquinaOut(BaseModel):
+    maquina: MaquinaOut
+    atual: EtapaFilaOut | None
+    fila: list[EtapaFilaOut]
+    parada: ParadaOut | None = None
+    atualizado_em: datetime
+
+
+# ---------- Fila por máquina ----------
+
+
+class FilaMaquinaOut(BaseModel):
+    maquina: MaquinaOut
+    parada: bool
+    atual: EtapaFilaOut | None
+    fila: list[EtapaFilaOut]
+    carga_min: float
+
+
+class FilaSetorOut(BaseModel):
+    setor_id: str
+    setor_nome: str
+    maquinas: list[FilaMaquinaOut]
+    a_distribuir: list[EtapaFilaOut]
+    carga_a_distribuir_min: float
+
+
+class FilaOut(BaseModel):
+    setores: list[FilaSetorOut]
+    atualizado_em: datetime
+
+
+class FilaMaquinaIn(BaseModel):
+    maquina_id: str
+    ordens: list[str] = Field(max_length=500)
+
+
+class FilaSetorIn(BaseModel):
+    maquinas: list[FilaMaquinaIn] = Field(max_length=50)
+    a_distribuir: list[str] = Field(default_factory=list, max_length=500)

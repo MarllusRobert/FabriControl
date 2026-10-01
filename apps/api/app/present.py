@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.constants import (
     PERFIS,
@@ -6,12 +6,14 @@ from app.constants import (
     STATUS_MAQUINA,
     STATUS_ORDEM,
     STATUS_RECEBE_ORDEM,
+    TIPOS_PARADA,
     TZ,
     inicio_for,
     menu_for,
 )
-from app.models import Maquina, Operador, OrdemProducao, Produto, Turno, Usuario
+from app.models import Maquina, Operador, OrdemEtapa, OrdemProducao, Parada, Produto, Turno, Usuario
 from app.schemas import (
+    EtapaFilaOut,
     MaquinaOut,
     MenuItem,
     OperadorOut,
@@ -19,6 +21,7 @@ from app.schemas import (
     OrdemEtapaOut,
     OrdemEventoOut,
     OrdemOut,
+    ParadaOut,
     ProdutoOut,
     RoteiroOut,
     TurnoOut,
@@ -149,6 +152,9 @@ def ordem_out(o: OrdemProducao) -> OrdemOut:
                 status_label=STATUS_ETAPA[e.status],
                 maquina_id=e.maquina_id,
                 maquina_codigo=e.maquina.codigo if e.maquina else None,
+                operador_nome=e.operador.nome if e.operador else None,
+                boas=e.boas,
+                refugo=e.refugo,
                 iniciada_em=e.iniciada_em,
                 concluida_em=e.concluida_em,
             )
@@ -156,6 +162,58 @@ def ordem_out(o: OrdemProducao) -> OrdemOut:
         ],
         criado_em=o.criado_em,
         concluida_em=o.concluida_em,
+    )
+
+
+def etapa_fila_out(o: OrdemProducao, e: OrdemEtapa, maquina: Maquina) -> EtapaFilaOut:
+    ciclo = float(e.tempo_padrao_seg if e.tempo_padrao_seg is not None else maquina.ciclo_padrao_seg)
+    proxima = next((x for x in o.etapas if x.sequencia > e.sequencia), None)
+    return EtapaFilaOut(
+        ordem_id=o.id,
+        ordem_numero=o.numero,
+        ordem_status=o.status,
+        motivo_pausa=o.motivo_pausa,
+        produto_codigo=o.produto.codigo,
+        produto_descricao=o.produto.descricao,
+        unidade=o.produto.unidade,
+        quantidade=o.quantidade,
+        prioridade=o.prioridade,
+        prazo=o.prazo,
+        atrasada=ordem_atrasada(o),
+        sequencia=e.sequencia,
+        total_etapas=len(o.etapas),
+        operacao=e.operacao,
+        proximo_setor=proxima.setor.nome if proxima else None,
+        status=e.status,
+        carga_min=round(o.saldo(e) * ciclo / 60, 1),
+        iniciada_em=e.iniciada_em,
+        operador_nome=e.operador.nome if e.operador else None,
+        entrada=o.entrada(e),
+        boas=e.boas,
+        refugo=e.refugo,
+        saldo=o.saldo(e),
+    )
+
+
+def parada_out(p: Parada) -> ParadaOut:
+    fim = p.fim or datetime.now(timezone.utc)
+    return ParadaOut(
+        id=p.id,
+        maquina_id=p.maquina_id,
+        maquina_codigo=p.maquina.codigo,
+        maquina_nome=p.maquina.nome,
+        setor_nome=p.maquina.setor.nome,
+        motivo_codigo=p.motivo.codigo,
+        motivo_descricao=p.motivo.descricao,
+        tipo=p.motivo.tipo,
+        tipo_label=TIPOS_PARADA[p.motivo.tipo],
+        planejada=p.motivo.tipo == "planejada",
+        inicio=p.inicio,
+        fim=p.fim,
+        duracao_min=round((fim - p.inicio).total_seconds() / 60, 1),
+        operador_nome=p.operador.nome if p.operador else None,
+        ordem_numero=p.ordem.numero if p.ordem else None,
+        observacao=p.observacao,
     )
 
 

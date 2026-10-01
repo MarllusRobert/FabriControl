@@ -2,7 +2,19 @@ import uuid
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Time, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Time,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.constants import PERFIS
@@ -202,6 +214,16 @@ class OrdemProducao(Base):
     def etapa_atual(self) -> "OrdemEtapa | None":
         return next((e for e in self.etapas if e.status != "concluida"), None)
 
+    def entrada(self, etapa: "OrdemEtapa") -> int:
+        """Peças que chegam à etapa: as boas da etapa anterior (se apontada) ou a quantidade da ordem."""
+        anterior = next((e for e in reversed(self.etapas) if e.sequencia < etapa.sequencia), None)
+        if anterior is None or not anterior.apontamentos:
+            return self.quantidade
+        return anterior.boas
+
+    def saldo(self, etapa: "OrdemEtapa") -> int:
+        return max(self.entrada(etapa) - etapa.boas - etapa.refugo, 0)
+
 
 class OrdemEtapa(Base):
     __tablename__ = "ordem_etapas"
@@ -216,11 +238,79 @@ class OrdemEtapa(Base):
     # aguardando → na_fila → em_andamento → concluida
     status: Mapped[str] = mapped_column(String(15), default="aguardando")
     maquina_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("maquinas.id", ondelete="SET NULL"), nullable=True)
+    operador_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("operadores.id", ondelete="SET NULL"), nullable=True
+    )
+    # Posição na fila do centro definida pelo PCP; vazia = ordena por prioridade e prazo.
+    fila_posicao: Mapped[int | None] = mapped_column(Integer, nullable=True)
     iniciada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     concluida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     setor: Mapped[Setor] = relationship(lazy="joined")
     maquina: Mapped[Maquina | None] = relationship(lazy="joined")
+    operador: Mapped[Operador | None] = relationship(lazy="joined")
+    apontamentos: Mapped[list["Apontamento"]] = relationship(
+        order_by="Apontamento.em", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    @property
+    def boas(self) -> int:
+        return sum(a.boas for a in self.apontamentos)
+
+    @property
+    def refugo(self) -> int:
+        return sum(a.refugo for a in self.apontamentos)
+
+
+class Apontamento(Base):
+    """Peças boas e refugadas informadas pelo operador numa etapa da ordem."""
+
+    __tablename__ = "apontamentos"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    etapa_id: Mapped[str] = mapped_column(String(36), ForeignKey("ordem_etapas.id", ondelete="CASCADE"), index=True)
+    maquina_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("maquinas.id", ondelete="SET NULL"), nullable=True)
+    operador_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("operadores.id", ondelete="SET NULL"), nullable=True
+    )
+    usuario_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    boas: Mapped[int] = mapped_column(Integer, default=0)
+    refugo: Mapped[int] = mapped_column(Integer, default=0)
+    motivo_refugo_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("motivos_refugo.id", ondelete="RESTRICT"), nullable=True
+    )
+    em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
+
+    motivo_refugo: Mapped[MotivoRefugo | None] = relationship(lazy="joined")
+
+
+class Parada(Base):
+    """Período em que a máquina ficou parada; fim vazio = parada em aberto."""
+
+    __tablename__ = "paradas"
+    __table_args__ = (
+        Index("uq_paradas_maquina_aberta", "maquina_id", unique=True, postgresql_where=text("fim IS NULL")),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    maquina_id: Mapped[str] = mapped_column(String(36), ForeignKey("maquinas.id", ondelete="RESTRICT"), index=True)
+    motivo_parada_id: Mapped[str] = mapped_column(String(36), ForeignKey("motivos_parada.id", ondelete="RESTRICT"))
+    operador_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("operadores.id", ondelete="SET NULL"), nullable=True
+    )
+    # OP que estava rodando e foi pausada junto; volta a produzir quando a parada termina.
+    ordem_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("ordens_producao.id", ondelete="SET NULL"), nullable=True
+    )
+    usuario_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    inicio: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
+    fim: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    observacao: Mapped[str | None] = mapped_column(String(300), nullable=True)
+
+    maquina: Mapped[Maquina] = relationship(lazy="joined")
+    motivo: Mapped[MotivoParada] = relationship(lazy="joined")
+    operador: Mapped[Operador | None] = relationship(lazy="joined")
+    ordem: Mapped[OrdemProducao | None] = relationship(lazy="joined")
 
 
 class OrdemEvento(Base):
