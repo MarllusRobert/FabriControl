@@ -22,7 +22,7 @@ ver = require_tela("motivos")
 editar = require_acao("gerenciar_equipe")
 
 
-def _parada_out(m: MotivoParada) -> MotivoParadaOut:
+def parada_out(m: MotivoParada) -> MotivoParadaOut:
     return MotivoParadaOut(
         id=m.id,
         codigo=m.codigo,
@@ -34,7 +34,7 @@ def _parada_out(m: MotivoParada) -> MotivoParadaOut:
     )
 
 
-def _refugo_out(m: MotivoRefugo) -> MotivoRefugoOut:
+def refugo_out(m: MotivoRefugo) -> MotivoRefugoOut:
     return MotivoRefugoOut(
         id=m.id,
         codigo=m.codigo,
@@ -78,7 +78,7 @@ def listar_paradas(
     if ativos:
         consulta = consulta.where(MotivoParada.ativo.is_(True))
     motivos = db.scalars(consulta.order_by(MotivoParada.tipo.desc(), MotivoParada.codigo)).all()
-    return [_parada_out(m) for m in motivos]
+    return [parada_out(m) for m in motivos]
 
 
 @router.post("/parada", response_model=MotivoParadaOut, status_code=201)
@@ -87,7 +87,7 @@ def criar_parada(payload: MotivoParadaIn, _user: Usuario = Depends(editar), db: 
     motivo = MotivoParada(**payload.model_dump())
     db.add(motivo)
     db.commit()
-    return _parada_out(motivo)
+    return parada_out(motivo)
 
 
 @router.put("/parada/{motivo_id}", response_model=MotivoParadaOut)
@@ -101,7 +101,7 @@ def atualizar_parada(
     for campo, valor in payload.model_dump().items():
         setattr(motivo, campo, valor)
     db.commit()
-    return _parada_out(motivo)
+    return parada_out(motivo)
 
 
 # ---------- Refugo ----------
@@ -120,7 +120,7 @@ def listar_refugos(
     if ativos:
         consulta = consulta.where(MotivoRefugo.ativo.is_(True))
     motivos = db.scalars(consulta.order_by(MotivoRefugo.categoria, MotivoRefugo.codigo)).all()
-    return [_refugo_out(m) for m in motivos]
+    return [refugo_out(m) for m in motivos]
 
 
 @router.post("/refugo", response_model=MotivoRefugoOut, status_code=201)
@@ -129,7 +129,7 @@ def criar_refugo(payload: MotivoRefugoIn, _user: Usuario = Depends(editar), db: 
     motivo = MotivoRefugo(**payload.model_dump())
     db.add(motivo)
     db.commit()
-    return _refugo_out(motivo)
+    return refugo_out(motivo)
 
 
 @router.put("/refugo/{motivo_id}", response_model=MotivoRefugoOut)
@@ -143,4 +143,4 @@ def atualizar_refugo(
     for campo, valor in payload.model_dump().items():
         setattr(motivo, campo, valor)
     db.commit()
-    return _refugo_out(motivo)
+    return refugo_out(motivo)

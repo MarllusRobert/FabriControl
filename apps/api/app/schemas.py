@@ -224,6 +224,8 @@ class OrdemEtapaOut(BaseModel):
     maquina_id: str | None
     maquina_codigo: str | None
     operador_nome: str | None = None
+    boas: int = 0
+    refugo: int = 0
     iniciada_em: datetime | None
     concluida_em: datetime | None
 
@@ -411,6 +413,17 @@ class EtapaFilaOut(BaseModel):
     carga_min: float
     iniciada_em: datetime | None
     operador_nome: str | None
+    entrada: int
+    boas: int
+    refugo: int
+    saldo: int
+
+
+class ApontamentoIn(BaseModel):
+    operador_id: str
+    boas: int = Field(default=0, ge=0, le=1_000_000)
+    refugo: int = Field(default=0, ge=0, le=1_000_000)
+    motivo_refugo_id: str | None = None
 
 
 class PainelMaquinaOut(BaseModel):

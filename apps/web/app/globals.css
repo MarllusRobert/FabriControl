@@ -1202,6 +1202,57 @@ textarea {
   background: var(--side);
 }
 
+.op-botao.apontar {
+  background: #2f6fb3;
+}
+
+.op-contagem {
+  margin-top: 16px;
+}
+
+.op-numeros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.op-numeros span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.op-numeros strong {
+  font-size: 30px;
+}
+
+.op-numeros .ok {
+  color: var(--ok);
+}
+
+.op-numeros .ruim {
+  color: var(--danger);
+}
+
+.op-barra {
+  height: 10px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bg);
+}
+
+.op-barra div {
+  height: 100%;
+  background: var(--ok);
+}
+
+.op-numero {
+  font-size: 26px;
+  text-align: center;
+}
+
 .op-fila {
   padding: 16px 20px;
   border-radius: var(--radius);

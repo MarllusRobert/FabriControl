@@ -151,6 +151,8 @@ def ordem_out(o: OrdemProducao) -> OrdemOut:
                 maquina_id=e.maquina_id,
                 maquina_codigo=e.maquina.codigo if e.maquina else None,
                 operador_nome=e.operador.nome if e.operador else None,
+                boas=e.boas,
+                refugo=e.refugo,
                 iniciada_em=e.iniciada_em,
                 concluida_em=e.concluida_em,
             )
@@ -181,9 +183,13 @@ def etapa_fila_out(o: OrdemProducao, e: OrdemEtapa, maquina: Maquina) -> EtapaFi
         operacao=e.operacao,
         proximo_setor=proxima.setor.nome if proxima else None,
         status=e.status,
-        carga_min=round(o.quantidade * ciclo / 60, 1),
+        carga_min=round(o.saldo(e) * ciclo / 60, 1),
         iniciada_em=e.iniciada_em,
         operador_nome=e.operador.nome if e.operador else None,
+        entrada=o.entrada(e),
+        boas=e.boas,
+        refugo=e.refugo,
+        saldo=o.saldo(e),
     )
 
 

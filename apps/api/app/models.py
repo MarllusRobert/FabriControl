@@ -202,6 +202,16 @@ class OrdemProducao(Base):
     def etapa_atual(self) -> "OrdemEtapa | None":
         return next((e for e in self.etapas if e.status != "concluida"), None)
 
+    def entrada(self, etapa: "OrdemEtapa") -> int:
+        """Peças que chegam à etapa: as boas da etapa anterior (se apontada) ou a quantidade da ordem."""
+        anterior = next((e for e in reversed(self.etapas) if e.sequencia < etapa.sequencia), None)
+        if anterior is None or not anterior.apontamentos:
+            return self.quantidade
+        return anterior.boas
+
+    def saldo(self, etapa: "OrdemEtapa") -> int:
+        return max(self.entrada(etapa) - etapa.boas - etapa.refugo, 0)
+
 
 class OrdemEtapa(Base):
     __tablename__ = "ordem_etapas"
@@ -225,6 +235,39 @@ class OrdemEtapa(Base):
     setor: Mapped[Setor] = relationship(lazy="joined")
     maquina: Mapped[Maquina | None] = relationship(lazy="joined")
     operador: Mapped[Operador | None] = relationship(lazy="joined")
+    apontamentos: Mapped[list["Apontamento"]] = relationship(
+        order_by="Apontamento.em", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    @property
+    def boas(self) -> int:
+        return sum(a.boas for a in self.apontamentos)
+
+    @property
+    def refugo(self) -> int:
+        return sum(a.refugo for a in self.apontamentos)
+
+
+class Apontamento(Base):
+    """Peças boas e refugadas informadas pelo operador numa etapa da ordem."""
+
+    __tablename__ = "apontamentos"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    etapa_id: Mapped[str] = mapped_column(String(36), ForeignKey("ordem_etapas.id", ondelete="CASCADE"), index=True)
+    maquina_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("maquinas.id", ondelete="SET NULL"), nullable=True)
+    operador_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("operadores.id", ondelete="SET NULL"), nullable=True
+    )
+    usuario_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    boas: Mapped[int] = mapped_column(Integer, default=0)
+    refugo: Mapped[int] = mapped_column(Integer, default=0)
+    motivo_refugo_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("motivos_refugo.id", ondelete="RESTRICT"), nullable=True
+    )
+    em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
+
+    motivo_refugo: Mapped[MotivoRefugo | None] = relationship(lazy="joined")
 
 
 class OrdemEvento(Base):

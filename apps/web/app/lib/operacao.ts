@@ -20,6 +20,10 @@ export type EtapaFila = {
   carga_min: number;
   iniciada_em: string | null;
   operador_nome: string | null;
+  entrada: number;
+  boas: number;
+  refugo: number;
+  saldo: number;
 };
 
 export type PainelMaquina = {

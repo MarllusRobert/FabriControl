@@ -7,11 +7,12 @@ from sqlalchemy.orm import Session
 from app.constants import ORDEM_ABERTA
 from app.db import get_db
 from app.deps import require_acao, require_tela
-from app.models import Maquina, Operador, OrdemEtapa, OrdemProducao, Usuario
+from app.models import Apontamento, Maquina, MotivoRefugo, Operador, OrdemEtapa, OrdemEvento, OrdemProducao, Usuario
 from app.present import etapa_fila_out, maquina_out, operador_out
 from app.routers.kanban import PESO_PRIORIDADE
+from app.routers.motivos import refugo_out
 from app.routers.ordens import executar_conclusao, executar_inicio
-from app.schemas import OperacaoIn, OperadorOut, PainelMaquinaOut
+from app.schemas import ApontamentoIn, MotivoRefugoOut, OperacaoIn, OperadorOut, PainelMaquinaOut
 
 router = APIRouter(prefix="/operacao", tags=["operacao"])
 ver = require_tela("operacao")
@@ -96,6 +97,62 @@ def iniciar(
     if par is None:
         raise HTTPException(status_code=400, detail=f"Esta OP não está na fila da {maquina.codigo}.")
     executar_inicio(db, par[0], user, maquina.id, operador)
+    db.commit()
+    return _painel(db, maquina)
+
+
+@router.get("/motivos-refugo", response_model=list[MotivoRefugoOut])
+def motivos_refugo(_user: Usuario = Depends(ver), db: Session = Depends(get_db)) -> list[MotivoRefugoOut]:
+    motivos = db.scalars(
+        select(MotivoRefugo).where(MotivoRefugo.ativo.is_(True)).order_by(MotivoRefugo.categoria, MotivoRefugo.descricao)
+    ).all()
+    return [refugo_out(m) for m in motivos]
+
+
+@router.post("/maquinas/{maquina_id}/apontar", response_model=PainelMaquinaOut)
+def apontar(
+    maquina_id: str, payload: ApontamentoIn, user: Usuario = Depends(movimentar), db: Session = Depends(get_db)
+) -> PainelMaquinaOut:
+    maquina = _maquina(db, maquina_id)
+    operador = _operador(db, payload.operador_id)
+    atual, _fila = _estado(db, maquina)
+    if atual is None:
+        raise HTTPException(status_code=400, detail=f"Nenhuma operação em andamento na {maquina.codigo}.")
+    ordem, etapa = atual
+    if payload.boas + payload.refugo == 0:
+        raise HTTPException(status_code=400, detail="Informe as peças boas ou o refugo.")
+    motivo = None
+    if payload.refugo:
+        motivo = db.get(MotivoRefugo, payload.motivo_refugo_id) if payload.motivo_refugo_id else None
+        if motivo is None or not motivo.ativo:
+            raise HTTPException(status_code=400, detail="Refugo exige o motivo.")
+    saldo = ordem.saldo(etapa)
+    if payload.boas + payload.refugo > saldo:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Só restam {saldo} {ordem.produto.unidade} nesta etapa; confira a contagem.",
+        )
+    etapa.apontamentos.append(
+        Apontamento(
+            maquina_id=maquina.id,
+            operador_id=operador.id,
+            usuario_id=user.id,
+            boas=payload.boas,
+            refugo=payload.refugo,
+            motivo_refugo_id=motivo.id if motivo else None,
+        )
+    )
+    partes = [f"{payload.boas} boas"] if payload.boas else []
+    if motivo:
+        partes.append(f"{payload.refugo} refugo ({motivo.descricao})")
+    db.add(
+        OrdemEvento(
+            ordem_id=ordem.id,
+            usuario_id=user.id,
+            tipo="apontamento",
+            descricao=f"Etapa {etapa.sequencia}: apontadas {' e '.join(partes)} na {maquina.codigo} por {operador.nome}.",
+        )
+    )
     db.commit()
     return _painel(db, maquina)
 

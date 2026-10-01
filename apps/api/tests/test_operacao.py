@@ -1,40 +1,6 @@
-from types import SimpleNamespace
-
 import pytest
 
-
-@pytest.fixture
-def equipe(client, admin, fluxo) -> SimpleNamespace:
-    turno = client.post("/turnos", headers=admin.headers, json={"codigo": "T1", "nome": "1º turno", "inicio": "06:00", "fim": "14:00"})
-    assert turno.status_code == 201, turno.text
-    ops = {}
-    for matricula, nome, setor in [("1001", "Carlos Alves", "DES"), ("1002", "Marcos Rocha", "COR")]:
-        resp = client.post(
-            "/operadores",
-            headers=admin.headers,
-            json={"matricula": matricula, "nome": nome, "turno_id": turno.json()["id"], "setor_id": fluxo[setor]["id"]},
-        )
-        assert resp.status_code == 201, resp.text
-        ops[matricula] = resp.json()
-    return SimpleNamespace(**{f"op{k}": v for k, v in ops.items()}, maq=fluxo["maquinas"])
-
-
-def painel(client, headers, maquina) -> dict:
-    resp = client.get(f"/operacao/maquinas/{maquina['id']}", headers=headers)
-    assert resp.status_code == 200, resp.text
-    return resp.json()
-
-
-def iniciar(client, headers, maquina, ordem, operador):
-    return client.post(
-        f"/operacao/maquinas/{maquina['id']}/iniciar",
-        headers=headers,
-        json={"ordem_id": ordem["id"], "operador_id": operador["id"]},
-    )
-
-
-def finalizar(client, headers, maquina, operador):
-    return client.post(f"/operacao/maquinas/{maquina['id']}/finalizar", headers=headers, json={"operador_id": operador["id"]})
+from conftest import finalizar, iniciar, painel
 
 
 def test_identifica_operador_pela_matricula(client, usuario, equipe):

@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import { temAcao, useAuth } from "../../lib/auth";
 import { Maquina, numero } from "../../lib/cadastros";
+import { MotivoRefugo } from "../../lib/motivos";
 import { EtapaFila, OperadorSessao, PainelMaquina, hora, horasLabel } from "../../lib/operacao";
 
 const CHAVE_MAQUINA = "fc.operacao.maquina";
@@ -143,6 +144,7 @@ function PainelOperacao({
   const [erro, setErro] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const [pausando, setPausando] = useState(false);
+  const [apontando, setApontando] = useState(false);
   const [, setRelogio] = useState(0);
 
   const carregar = useCallback(() => {
@@ -164,15 +166,17 @@ function PainelOperacao({
     };
   }, [carregar]);
 
-  async function acao(caminho: string, corpo: object) {
+  async function acao(caminho: string, corpo: object): Promise<boolean> {
     setOcupado(true);
     setErro("");
     try {
       const resp = await api<PainelMaquina | object>(caminho, { method: "POST", body: JSON.stringify(corpo) });
       if ("maquina" in resp) setPainel(resp as PainelMaquina);
       else carregar();
+      return true;
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Não foi possível concluir.");
+      return false;
     } finally {
       setOcupado(false);
     }
@@ -217,8 +221,12 @@ function PainelOperacao({
             </p>
           ) : null}
           {atual.ordem_status === "pausada" ? <p className="op-pausa">Motivo: {atual.motivo_pausa}</p> : null}
+          <Contagem etapa={atual} />
           {podeMovimentar ? (
             <div className="op-botoes">
+              <button className="op-botao apontar" disabled={ocupado || atual.saldo === 0} onClick={() => setApontando(true)}>
+                Apontar peças
+              </button>
               {atual.ordem_status === "pausada" ? (
                 <button className="op-botao iniciar" disabled={ocupado} onClick={() => acao(`/ordens/${atual.ordem_id}/retomar`, {})}>
                   Retomar
@@ -232,7 +240,10 @@ function PainelOperacao({
                     className="op-botao finalizar"
                     disabled={ocupado}
                     onClick={() => {
-                      if (confirm(`Finalizar a etapa da OP ${atual.ordem_numero}?`)) acao(`${base}/finalizar`, { operador_id: operador.id });
+                      const aviso = atual.saldo
+                        ? `Ainda faltam ${numero(atual.saldo)} ${atual.unidade} desta etapa. Finalizar mesmo assim?`
+                        : `Finalizar a etapa da OP ${atual.ordem_numero}?`;
+                      if (confirm(aviso)) acao(`${base}/finalizar`, { operador_id: operador.id });
                     }}
                   >
                     Finalizar
@@ -284,6 +295,22 @@ function PainelOperacao({
         </section>
       ) : null}
 
+      {apontando && atual ? (
+        <ApontarForm
+          etapa={atual}
+          erro={erro}
+          onClose={() => {
+            setApontando(false);
+            setErro("");
+          }}
+          onApontar={async (corpo) => {
+            const ok = await acao(`${base}/apontar`, { operador_id: operador.id, ...corpo });
+            if (ok) setApontando(false);
+            return ok;
+          }}
+        />
+      ) : null}
+
       {pausando && atual ? (
         <PausarForm
           onClose={() => setPausando(false)}
@@ -313,6 +340,116 @@ function Resumo({ etapa }: { etapa: EtapaFila }) {
         Etapa {etapa.sequencia} de {etapa.total_etapas}: {etapa.operacao}
         {etapa.proximo_setor ? <span className="hint"> · depois vai para {etapa.proximo_setor}</span> : null}
       </div>
+    </div>
+  );
+}
+
+function Contagem({ etapa }: { etapa: EtapaFila }) {
+  const feito = etapa.entrada ? Math.min(((etapa.boas + etapa.refugo) / etapa.entrada) * 100, 100) : 0;
+  return (
+    <div className="op-contagem">
+      <div className="op-numeros">
+        <div>
+          <span>Boas</span>
+          <strong className="ok">{numero(etapa.boas)}</strong>
+        </div>
+        <div>
+          <span>Refugo</span>
+          <strong className={etapa.refugo ? "ruim" : ""}>{numero(etapa.refugo)}</strong>
+        </div>
+        <div>
+          <span>Faltam</span>
+          <strong>{numero(etapa.saldo)}</strong>
+        </div>
+        <div>
+          <span>Chegaram</span>
+          <strong>{numero(etapa.entrada)}</strong>
+        </div>
+      </div>
+      <div className="op-barra">
+        <div style={{ width: `${feito}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function ApontarForm({
+  etapa,
+  erro,
+  onClose,
+  onApontar,
+}: {
+  etapa: EtapaFila;
+  erro: string;
+  onClose: () => void;
+  onApontar: (corpo: { boas: number; refugo: number; motivo_refugo_id: string | null }) => Promise<boolean>;
+}) {
+  const [boas, setBoas] = useState("");
+  const [refugo, setRefugo] = useState("");
+  const [motivoId, setMotivoId] = useState("");
+  const [motivos, setMotivos] = useState<MotivoRefugo[]>([]);
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    api<MotivoRefugo[]>("/operacao/motivos-refugo")
+      .then(setMotivos)
+      .catch(() => setMotivos([]));
+  }, []);
+
+  const nBoas = Number(boas) || 0;
+  const nRefugo = Number(refugo) || 0;
+  const passou = nBoas + nRefugo > etapa.saldo;
+
+  async function enviar(e: FormEvent) {
+    e.preventDefault();
+    setEnviando(true);
+    await onApontar({ boas: nBoas, refugo: nRefugo, motivo_refugo_id: nRefugo ? motivoId || null : null });
+    setEnviando(false);
+  }
+
+  return (
+    <div className="modal-back" onClick={onClose}>
+      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={enviar}>
+        <h2>
+          Apontar peças · OP {etapa.ordem_numero}
+        </h2>
+        <p className="hint">
+          Faltam {numero(etapa.saldo)} {etapa.unidade} nesta etapa.
+        </p>
+        {erro ? <p className="error">{erro}</p> : null}
+        <div className="form-grid">
+          <label className="field">
+            Peças boas
+            <input className="op-numero" type="number" min={0} value={boas} onChange={(e) => setBoas(e.target.value)} inputMode="numeric" autoFocus />
+          </label>
+          <label className="field">
+            Refugo
+            <input className="op-numero" type="number" min={0} value={refugo} onChange={(e) => setRefugo(e.target.value)} inputMode="numeric" />
+          </label>
+          {nRefugo > 0 ? (
+            <label className="field full">
+              Motivo do refugo
+              <select value={motivoId} onChange={(e) => setMotivoId(e.target.value)} required>
+                <option value="">Escolha o motivo</option>
+                {motivos.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.categoria_label} · {m.descricao}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
+        {passou ? <p className="error">A soma passa do que falta ({numero(etapa.saldo)}).</p> : null}
+        <div className="form-actions">
+          <button type="button" className="btn" onClick={onClose}>
+            Cancelar
+          </button>
+          <button className="btn primary" disabled={enviando || passou || nBoas + nRefugo === 0}>
+            {enviando ? "Salvando…" : "Apontar"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
