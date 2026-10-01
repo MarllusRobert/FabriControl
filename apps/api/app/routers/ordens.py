@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.constants import ORDEM_ABERTA, PRIORIDADES, STATUS_ORDEM, STATUS_RECEBE_ORDEM
 from app.db import get_db
 from app.deps import require_acao, require_tela
-from app.models import Maquina, OrdemEtapa, OrdemEvento, OrdemProducao, Produto, Usuario
+from app.models import Maquina, Operador, OrdemEtapa, OrdemEvento, OrdemProducao, Produto, Usuario
 from app.present import ordem_detalhe_out, ordem_out
 from app.routers.cadastros import maquina_pode_receber_ordem
 from app.schemas import MaquinaEscolhaIn, MotivoIn, OrdemDetalheOut, OrdemIn, OrdemOut
@@ -138,21 +138,65 @@ def liberar(ordem_id: str, user: Usuario = Depends(planejar), db: Session = Depe
     return _resposta(db, ordem)
 
 
+def _por(operador: Operador | None) -> str:
+    return f" por {operador.nome} ({operador.matricula})" if operador else ""
+
+
+def executar_inicio(
+    db: Session, ordem: OrdemProducao, user: Usuario, maquina_id: str | None, operador: Operador | None = None
+) -> OrdemEtapa:
+    _exigir_status(ordem, "liberada", "em_producao", acao="iniciar a etapa")
+    etapa = ordem.etapa_atual
+    if etapa is None or etapa.status != "na_fila":
+        raise HTTPException(status_code=400, detail="A etapa atual já foi iniciada.")
+    maquina = _maquina_da_etapa(db, etapa, maquina_id)
+    etapa.maquina_id = maquina.id
+    etapa.status = "em_andamento"
+    etapa.iniciada_em = _agora()
+    if operador is not None:
+        etapa.operador_id = operador.id
+    ordem.status = "em_producao"
+    _registrar(
+        db, ordem, user, "etapa_iniciada",
+        f"Etapa {etapa.sequencia} ({etapa.setor.nome}) iniciada na {maquina.codigo}{_por(operador)}.",
+    )
+    return etapa
+
+
+def executar_conclusao(
+    db: Session, ordem: OrdemProducao, user: Usuario, maquina_id: str | None, operador: Operador | None = None
+) -> OrdemEtapa:
+    _exigir_status(ordem, "liberada", "em_producao", acao="concluir a etapa")
+    etapa = ordem.etapa_atual
+    if etapa is None:
+        raise HTTPException(status_code=400, detail="Todas as etapas já foram concluídas.")
+    maquina = _maquina_da_etapa(db, etapa, maquina_id)
+    agora = _agora()
+    etapa.maquina_id = maquina.id
+    etapa.iniciada_em = etapa.iniciada_em or agora
+    etapa.concluida_em = agora
+    etapa.status = "concluida"
+    if operador is not None and etapa.operador_id is None:
+        etapa.operador_id = operador.id
+    feito = f"Etapa {etapa.sequencia} ({etapa.setor.nome}) concluída na {maquina.codigo}{_por(operador)}"
+    proxima = next((e for e in ordem.etapas if e.sequencia > etapa.sequencia), None)
+    if proxima is None:
+        ordem.status = "concluida"
+        ordem.concluida_em = agora
+        _registrar(db, ordem, user, "concluida", f"{feito}. OP concluída: produto final pronto.")
+    else:
+        proxima.status = "na_fila"
+        ordem.status = "em_producao"
+        _registrar(db, ordem, user, "etapa_concluida", f"{feito}; segue para {proxima.setor.nome}.")
+    return etapa
+
+
 @router.post("/{ordem_id}/iniciar", response_model=OrdemDetalheOut)
 def iniciar(
     ordem_id: str, payload: MaquinaEscolhaIn, user: Usuario = Depends(movimentar), db: Session = Depends(get_db)
 ) -> OrdemDetalheOut:
     ordem = _obter(db, ordem_id)
-    _exigir_status(ordem, "liberada", "em_producao", acao="iniciar a etapa")
-    etapa = ordem.etapa_atual
-    if etapa is None or etapa.status != "na_fila":
-        raise HTTPException(status_code=400, detail="A etapa atual já foi iniciada.")
-    maquina = _maquina_da_etapa(db, etapa, payload.maquina_id)
-    etapa.maquina_id = maquina.id
-    etapa.status = "em_andamento"
-    etapa.iniciada_em = _agora()
-    ordem.status = "em_producao"
-    _registrar(db, ordem, user, "etapa_iniciada", f"Etapa {etapa.sequencia} ({etapa.setor.nome}) iniciada na {maquina.codigo}.")
+    executar_inicio(db, ordem, user, payload.maquina_id)
     return _resposta(db, ordem)
 
 
@@ -161,31 +205,7 @@ def concluir_etapa(
     ordem_id: str, payload: MaquinaEscolhaIn, user: Usuario = Depends(movimentar), db: Session = Depends(get_db)
 ) -> OrdemDetalheOut:
     ordem = _obter(db, ordem_id)
-    _exigir_status(ordem, "liberada", "em_producao", acao="concluir a etapa")
-    etapa = ordem.etapa_atual
-    if etapa is None:
-        raise HTTPException(status_code=400, detail="Todas as etapas já foram concluídas.")
-    maquina = _maquina_da_etapa(db, etapa, payload.maquina_id)
-    agora = _agora()
-    etapa.maquina_id = maquina.id
-    etapa.iniciada_em = etapa.iniciada_em or agora
-    etapa.concluida_em = agora
-    etapa.status = "concluida"
-    proxima = next((e for e in ordem.etapas if e.sequencia > etapa.sequencia), None)
-    if proxima is None:
-        ordem.status = "concluida"
-        ordem.concluida_em = agora
-        _registrar(
-            db, ordem, user, "concluida",
-            f"Etapa {etapa.sequencia} ({etapa.setor.nome}) concluída na {maquina.codigo}. OP concluída: produto final pronto.",
-        )
-    else:
-        proxima.status = "na_fila"
-        ordem.status = "em_producao"
-        _registrar(
-            db, ordem, user, "etapa_concluida",
-            f"Etapa {etapa.sequencia} ({etapa.setor.nome}) concluída na {maquina.codigo}; segue para {proxima.setor.nome}.",
-        )
+    executar_conclusao(db, ordem, user, payload.maquina_id)
     return _resposta(db, ordem)
 
 

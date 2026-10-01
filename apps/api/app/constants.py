@@ -4,6 +4,7 @@ TZ = ZoneInfo("America/Sao_Paulo")
 
 TELAS_LABEL = {
     "painel": "Painel da fábrica",
+    "operacao": "Tela do operador na máquina",
     "kanban": "Kanban da produção",
     "maquinas": "Máquinas e centros de trabalho",
     "produtos": "Produtos e roteiros de fabricação",
@@ -34,12 +35,12 @@ PERFIS = {
     },
     "supervisor": {
         "label": "Supervisor de produção",
-        "telas": ["painel", "kanban", "maquinas", "produtos", "equipe", "motivos"],
+        "telas": ["painel", "operacao", "kanban", "maquinas", "produtos", "equipe", "motivos"],
         "acoes": ["movimentar_producao", "gerenciar_equipe"],
     },
     "operador": {
         "label": "Operador",
-        "telas": ["kanban", "maquinas"],
+        "telas": ["operacao", "kanban", "maquinas"],
         "acoes": ["movimentar_producao"],
     },
     "qualidade": {
@@ -51,6 +52,7 @@ PERFIS = {
 
 MENU = [
     ("painel", "Painel", "/painel"),
+    ("operacao", "Operação", "/operacao"),
     ("kanban", "Kanban", "/kanban"),
     ("maquinas", "Máquinas", "/maquinas"),
     ("produtos", "Produtos", "/produtos"),

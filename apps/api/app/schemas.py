@@ -223,6 +223,7 @@ class OrdemEtapaOut(BaseModel):
     status_label: str
     maquina_id: str | None
     maquina_codigo: str | None
+    operador_nome: str | None = None
     iniciada_em: datetime | None
     concluida_em: datetime | None
 
@@ -380,3 +381,40 @@ class OpcaoOut(BaseModel):
 class OpcoesMotivosOut(BaseModel):
     tipos_parada: list[OpcaoOut]
     categorias_refugo: list[OpcaoOut]
+
+
+# ---------- Operação na máquina ----------
+
+
+class OperacaoIn(BaseModel):
+    operador_id: str
+    ordem_id: str | None = None
+
+
+class EtapaFilaOut(BaseModel):
+    ordem_id: str
+    ordem_numero: int
+    ordem_status: str
+    motivo_pausa: str | None
+    produto_codigo: str
+    produto_descricao: str
+    unidade: str
+    quantidade: int
+    prioridade: str
+    prazo: date | None
+    atrasada: bool
+    sequencia: int
+    total_etapas: int
+    operacao: str
+    proximo_setor: str | None
+    status: str
+    carga_min: float
+    iniciada_em: datetime | None
+    operador_nome: str | None
+
+
+class PainelMaquinaOut(BaseModel):
+    maquina: MaquinaOut
+    atual: EtapaFilaOut | None
+    fila: list[EtapaFilaOut]
+    atualizado_em: datetime

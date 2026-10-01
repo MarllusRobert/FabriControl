@@ -124,4 +124,4 @@ def test_operador_nao_ve_painel(client, usuario):
     op = usuario("operador")
     me = client.get("/auth/me", headers=op.headers).json()
     assert "painel" not in me["telas"]
-    assert me["inicio"] == "/kanban"
+    assert me["inicio"] == "/operacao"

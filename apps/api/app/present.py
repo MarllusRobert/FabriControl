@@ -10,8 +10,9 @@ from app.constants import (
     inicio_for,
     menu_for,
 )
-from app.models import Maquina, Operador, OrdemProducao, Produto, Turno, Usuario
+from app.models import Maquina, Operador, OrdemEtapa, OrdemProducao, Produto, Turno, Usuario
 from app.schemas import (
+    EtapaFilaOut,
     MaquinaOut,
     MenuItem,
     OperadorOut,
@@ -149,6 +150,7 @@ def ordem_out(o: OrdemProducao) -> OrdemOut:
                 status_label=STATUS_ETAPA[e.status],
                 maquina_id=e.maquina_id,
                 maquina_codigo=e.maquina.codigo if e.maquina else None,
+                operador_nome=e.operador.nome if e.operador else None,
                 iniciada_em=e.iniciada_em,
                 concluida_em=e.concluida_em,
             )
@@ -156,6 +158,32 @@ def ordem_out(o: OrdemProducao) -> OrdemOut:
         ],
         criado_em=o.criado_em,
         concluida_em=o.concluida_em,
+    )
+
+
+def etapa_fila_out(o: OrdemProducao, e: OrdemEtapa, maquina: Maquina) -> EtapaFilaOut:
+    ciclo = float(e.tempo_padrao_seg if e.tempo_padrao_seg is not None else maquina.ciclo_padrao_seg)
+    proxima = next((x for x in o.etapas if x.sequencia > e.sequencia), None)
+    return EtapaFilaOut(
+        ordem_id=o.id,
+        ordem_numero=o.numero,
+        ordem_status=o.status,
+        motivo_pausa=o.motivo_pausa,
+        produto_codigo=o.produto.codigo,
+        produto_descricao=o.produto.descricao,
+        unidade=o.produto.unidade,
+        quantidade=o.quantidade,
+        prioridade=o.prioridade,
+        prazo=o.prazo,
+        atrasada=ordem_atrasada(o),
+        sequencia=e.sequencia,
+        total_etapas=len(o.etapas),
+        operacao=e.operacao,
+        proximo_setor=proxima.setor.nome if proxima else None,
+        status=e.status,
+        carga_min=round(o.quantidade * ciclo / 60, 1),
+        iniciada_em=e.iniciada_em,
+        operador_nome=e.operador.nome if e.operador else None,
     )
 
 

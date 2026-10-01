@@ -15,7 +15,7 @@ def test_setup_cria_administrador_uma_vez_so(client):
     assert resp.status_code == 200, resp.text
     user = resp.json()["user"]
     assert user["perfil"] == "administrador"
-    telas = ["painel", "kanban", "maquinas", "produtos", "equipe", "motivos", "usuarios"]
+    telas = ["painel", "operacao", "kanban", "maquinas", "produtos", "equipe", "motivos", "usuarios"]
     assert [m["tela"] for m in user["menu"]] == telas
     assert client.get("/setup/status").json() == {"needs_setup": False}
     assert client.post("/setup", json=SETUP).status_code == 409
@@ -81,8 +81,8 @@ def test_troca_de_senha_derruba_sessoes_antigas(client, usuario):
     ("perfil", "menu"),
     [
         ("pcp", ["painel", "kanban", "maquinas", "produtos", "equipe", "motivos"]),
-        ("supervisor", ["painel", "kanban", "maquinas", "produtos", "equipe", "motivos"]),
-        ("operador", ["kanban", "maquinas"]),
+        ("supervisor", ["painel", "operacao", "kanban", "maquinas", "produtos", "equipe", "motivos"]),
+        ("operador", ["operacao", "kanban", "maquinas"]),
         ("qualidade", ["painel", "kanban", "maquinas", "produtos", "motivos"]),
     ],
 )

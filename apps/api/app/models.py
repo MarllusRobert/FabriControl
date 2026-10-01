@@ -216,11 +216,15 @@ class OrdemEtapa(Base):
     # aguardando → na_fila → em_andamento → concluida
     status: Mapped[str] = mapped_column(String(15), default="aguardando")
     maquina_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("maquinas.id", ondelete="SET NULL"), nullable=True)
+    operador_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("operadores.id", ondelete="SET NULL"), nullable=True
+    )
     iniciada_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     concluida_em: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     setor: Mapped[Setor] = relationship(lazy="joined")
     maquina: Mapped[Maquina | None] = relationship(lazy="joined")
+    operador: Mapped[Operador | None] = relationship(lazy="joined")
 
 
 class OrdemEvento(Base):
