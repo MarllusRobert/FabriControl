@@ -26,10 +26,30 @@ export type EtapaFila = {
   saldo: number;
 };
 
+export type Parada = {
+  id: string;
+  maquina_id: string;
+  maquina_codigo: string;
+  maquina_nome: string;
+  setor_nome: string;
+  motivo_codigo: string;
+  motivo_descricao: string;
+  tipo: string;
+  tipo_label: string;
+  planejada: boolean;
+  inicio: string;
+  fim: string | null;
+  duracao_min: number;
+  operador_nome: string | null;
+  ordem_numero: number | null;
+  observacao: string | null;
+};
+
 export type PainelMaquina = {
   maquina: Maquina;
   atual: EtapaFila | null;
   fila: EtapaFila[];
+  parada: Parada | null;
   atualizado_em: string;
 };
 

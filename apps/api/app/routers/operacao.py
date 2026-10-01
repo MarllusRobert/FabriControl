@@ -7,12 +7,32 @@ from sqlalchemy.orm import Session
 from app.constants import ORDEM_ABERTA
 from app.db import get_db
 from app.deps import require_acao, require_tela
-from app.models import Apontamento, Maquina, MotivoRefugo, Operador, OrdemEtapa, OrdemEvento, OrdemProducao, Usuario
-from app.present import etapa_fila_out, maquina_out, operador_out
+from app.models import (
+    Apontamento,
+    Maquina,
+    MotivoParada,
+    MotivoRefugo,
+    Operador,
+    OrdemEtapa,
+    OrdemEvento,
+    OrdemProducao,
+    Parada,
+    Usuario,
+)
+from app.present import etapa_fila_out, maquina_out, operador_out, parada_out
 from app.routers.kanban import PESO_PRIORIDADE
+from app.routers.motivos import parada_out as parada_motivo_out
 from app.routers.motivos import refugo_out
 from app.routers.ordens import executar_conclusao, executar_inicio
-from app.schemas import ApontamentoIn, MotivoRefugoOut, OperacaoIn, OperadorOut, PainelMaquinaOut
+from app.schemas import (
+    ApontamentoIn,
+    MotivoParadaOut,
+    MotivoRefugoOut,
+    OperacaoIn,
+    OperadorOut,
+    PainelMaquinaOut,
+    PararIn,
+)
 
 router = APIRouter(prefix="/operacao", tags=["operacao"])
 ver = require_tela("operacao")
@@ -54,12 +74,18 @@ def _estado(db: Session, maquina: Maquina) -> tuple[Par | None, list[Par]]:
     return atual, fila
 
 
+def _parada_aberta(db: Session, maquina: Maquina) -> Parada | None:
+    return db.scalar(select(Parada).where(Parada.maquina_id == maquina.id, Parada.fim.is_(None)))
+
+
 def _painel(db: Session, maquina: Maquina) -> PainelMaquinaOut:
     atual, fila = _estado(db, maquina)
+    parada = _parada_aberta(db, maquina)
     return PainelMaquinaOut(
         maquina=maquina_out(maquina),
         atual=etapa_fila_out(*atual, maquina) if atual else None,
         fila=[etapa_fila_out(o, e, maquina) for o, e in fila],
+        parada=parada_out(parada) if parada else None,
         atualizado_em=datetime.now(timezone.utc),
     )
 
@@ -87,6 +113,8 @@ def iniciar(
     operador = _operador(db, payload.operador_id)
     if not payload.ordem_id:
         raise HTTPException(status_code=400, detail="Escolha a ordem da fila.")
+    if _parada_aberta(db, maquina) is not None:
+        raise HTTPException(status_code=400, detail=f"A {maquina.codigo} está parada; registre a volta antes de iniciar.")
     atual, fila = _estado(db, maquina)
     if atual is not None:
         raise HTTPException(
@@ -153,6 +181,84 @@ def apontar(
             descricao=f"Etapa {etapa.sequencia}: apontadas {' e '.join(partes)} na {maquina.codigo} por {operador.nome}.",
         )
     )
+    db.commit()
+    return _painel(db, maquina)
+
+
+@router.get("/motivos-parada", response_model=list[MotivoParadaOut])
+def motivos_parada(_user: Usuario = Depends(ver), db: Session = Depends(get_db)) -> list[MotivoParadaOut]:
+    motivos = db.scalars(
+        select(MotivoParada).where(MotivoParada.ativo.is_(True)).order_by(MotivoParada.tipo.desc(), MotivoParada.descricao)
+    ).all()
+    return [parada_motivo_out(m) for m in motivos]
+
+
+@router.post("/maquinas/{maquina_id}/parar", response_model=PainelMaquinaOut)
+def parar(
+    maquina_id: str, payload: PararIn, user: Usuario = Depends(movimentar), db: Session = Depends(get_db)
+) -> PainelMaquinaOut:
+    maquina = _maquina(db, maquina_id)
+    operador = _operador(db, payload.operador_id)
+    aberta = _parada_aberta(db, maquina)
+    if aberta is not None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"A {maquina.codigo} já está parada ({aberta.motivo.descricao}); registre a volta antes.",
+        )
+    motivo = db.get(MotivoParada, payload.motivo_parada_id)
+    if motivo is None or not motivo.ativo:
+        raise HTTPException(status_code=400, detail="Escolha o motivo da parada.")
+    atual, _fila = _estado(db, maquina)
+    ordem = atual[0] if atual and atual[0].status in ("liberada", "em_producao") else None
+    if ordem is not None:
+        ordem.status = "pausada"
+        ordem.motivo_pausa = f"Máquina parada: {motivo.descricao}"
+        db.add(
+            OrdemEvento(
+                ordem_id=ordem.id,
+                usuario_id=user.id,
+                tipo="pausada",
+                descricao=f"Pausada: a {maquina.codigo} parou por {motivo.descricao.lower()} ({operador.nome}).",
+            )
+        )
+    db.add(
+        Parada(
+            maquina_id=maquina.id,
+            motivo_parada_id=motivo.id,
+            operador_id=operador.id,
+            ordem_id=ordem.id if ordem else None,
+            usuario_id=user.id,
+            observacao=(payload.observacao or "").strip() or None,
+        )
+    )
+    db.commit()
+    return _painel(db, maquina)
+
+
+@router.post("/maquinas/{maquina_id}/voltar", response_model=PainelMaquinaOut)
+def voltar(
+    maquina_id: str, payload: OperacaoIn, user: Usuario = Depends(movimentar), db: Session = Depends(get_db)
+) -> PainelMaquinaOut:
+    maquina = _maquina(db, maquina_id)
+    operador = _operador(db, payload.operador_id)
+    parada = _parada_aberta(db, maquina)
+    if parada is None:
+        raise HTTPException(status_code=400, detail=f"A {maquina.codigo} não está parada.")
+    parada.fim = datetime.now(timezone.utc)
+    ordem = parada.ordem
+    if ordem is not None and ordem.status == "pausada":
+        iniciou = any(e.status in ("em_andamento", "concluida") for e in ordem.etapas)
+        ordem.status = "em_producao" if iniciou else "liberada"
+        ordem.motivo_pausa = None
+        minutos = round((parada.fim - parada.inicio).total_seconds() / 60)
+        db.add(
+            OrdemEvento(
+                ordem_id=ordem.id,
+                usuario_id=user.id,
+                tipo="retomada",
+                descricao=f"Produção retomada: a {maquina.codigo} voltou após {minutos} min ({operador.nome}).",
+            )
+        )
     db.commit()
     return _painel(db, maquina)
 

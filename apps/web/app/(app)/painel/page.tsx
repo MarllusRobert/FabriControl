@@ -6,20 +6,32 @@ import { PageHeader } from "../../components/Shell";
 import { api } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { Maquina, ResumoMaquinas, numero } from "../../lib/cadastros";
+import { Parada, hora, horasLabel } from "../../lib/operacao";
 
 export default function PainelPage() {
   const { user } = useAuth();
   const [resumo, setResumo] = useState<ResumoMaquinas | null>(null);
-  const [paradas, setParadas] = useState<Maquina[]>([]);
+  const [foraDeOperacao, setForaDeOperacao] = useState<Maquina[]>([]);
+  const [paradasAbertas, setParadasAbertas] = useState<Parada[]>([]);
   const [erro, setErro] = useState("");
 
   useEffect(() => {
     Promise.all([api<ResumoMaquinas>("/maquinas/resumo"), api<Maquina[]>("/maquinas")])
       .then(([r, maquinas]) => {
         setResumo(r);
-        setParadas(maquinas.filter((m) => !m.recebe_ordem));
+        setForaDeOperacao(maquinas.filter((m) => !m.recebe_ordem));
       })
       .catch((e: Error) => setErro(e.message));
+  }, []);
+
+  useEffect(() => {
+    const carregar = () =>
+      api<Parada[]>("/paradas?abertas=true")
+        .then(setParadasAbertas)
+        .catch(() => undefined);
+    carregar();
+    const t = setInterval(carregar, 30000);
+    return () => clearInterval(t);
   }, []);
 
   if (erro) return <p className="error">{erro}</p>;
@@ -35,6 +47,28 @@ export default function PainelPage() {
         title={`Olá, ${user?.nome.split(" ")[0]}`}
         subtitle="Situação do parque de máquinas. Produção e OEE entram aqui conforme as próximas sprints."
       />
+
+      {paradasAbertas.length ? (
+        <section className="alerta-paradas">
+          <h2>
+            {paradasAbertas.length === 1 ? "1 máquina parada agora" : `${paradasAbertas.length} máquinas paradas agora`}
+          </h2>
+          <ul>
+            {paradasAbertas.map((p) => (
+              <li key={p.id}>
+                <strong className="mono">{p.maquina_codigo}</strong>
+                <span>{p.motivo_descricao}</span>
+                <span className={`badge ${p.tipo}`}>{p.tipo_label}</span>
+                <span className="hint">
+                  desde {hora(p.inicio)} · há {horasLabel(p.duracao_min)}
+                  {p.ordem_numero ? ` · OP ${p.ordem_numero} pausada` : ""}
+                  {p.operador_nome ? ` · ${p.operador_nome}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="grid-kpi">
         <div className="kpi total">
@@ -72,12 +106,12 @@ export default function PainelPage() {
 
         <div className="card">
           <h2>Fora de operação</h2>
-          {paradas.length === 0 ? (
+          {foraDeOperacao.length === 0 ? (
             <p className="hint">Todas as máquinas estão ativas.</p>
           ) : (
             <table className="table">
               <tbody>
-                {paradas.map((m) => (
+                {foraDeOperacao.map((m) => (
                   <tr key={m.id}>
                     <td className="mono">{m.codigo}</td>
                     <td>

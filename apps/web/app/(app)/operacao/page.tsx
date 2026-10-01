@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import { temAcao, useAuth } from "../../lib/auth";
 import { Maquina, numero } from "../../lib/cadastros";
-import { MotivoRefugo } from "../../lib/motivos";
+import { MotivoParada, MotivoRefugo } from "../../lib/motivos";
 import { EtapaFila, OperadorSessao, PainelMaquina, hora, horasLabel } from "../../lib/operacao";
 
 const CHAVE_MAQUINA = "fc.operacao.maquina";
@@ -185,6 +185,13 @@ function PainelOperacao({
   const base = `/operacao/maquinas/${maquinaId}`;
   const atual = painel?.atual ?? null;
   const [proxima, ...resto] = painel?.fila ?? [];
+  const parada = painel?.parada ?? null;
+  const botaoParar =
+    podeMovimentar && !parada ? (
+      <button className="op-botao pausar" disabled={ocupado} onClick={() => setPausando(true)}>
+        Parar máquina
+      </button>
+    ) : null;
 
   return (
     <div className="op-tela">
@@ -207,8 +214,27 @@ function PainelOperacao({
         </div>
       </header>
 
-      {erro ? <p className="error op-erro">{erro}</p> : null}
+      {erro && !apontando ? <p className="error op-erro">{erro}</p> : null}
       {painel === null ? <p className="empty">Carregando…</p> : null}
+
+      {parada ? (
+        <section className={`op-parada ${parada.planejada ? "planejada" : ""}`}>
+          <div>
+            <div className="op-estado">Máquina parada · {parada.tipo_label}</div>
+            <strong>{parada.motivo_descricao}</strong>
+            <p>
+              Desde {hora(parada.inicio)} · há {horasLabel((Date.now() - Date.parse(parada.inicio)) / 60000)}
+              {parada.operador_nome ? ` · ${parada.operador_nome}` : ""}
+              {parada.observacao ? ` · ${parada.observacao}` : ""}
+            </p>
+          </div>
+          {podeMovimentar ? (
+            <button className="op-botao iniciar" disabled={ocupado} onClick={() => acao(`${base}/voltar`, { operador_id: operador.id })}>
+              Voltar a produzir
+            </button>
+          ) : null}
+        </section>
+      ) : null}
 
       {atual ? (
         <section className={`op-card ${atual.ordem_status === "pausada" ? "pausada" : "rodando"}`}>
@@ -228,14 +254,14 @@ function PainelOperacao({
                 Apontar peças
               </button>
               {atual.ordem_status === "pausada" ? (
-                <button className="op-botao iniciar" disabled={ocupado} onClick={() => acao(`/ordens/${atual.ordem_id}/retomar`, {})}>
-                  Retomar
-                </button>
+                parada ? null : (
+                  <button className="op-botao iniciar" disabled={ocupado} onClick={() => acao(`/ordens/${atual.ordem_id}/retomar`, {})}>
+                    Retomar
+                  </button>
+                )
               ) : (
                 <>
-                  <button className="op-botao pausar" disabled={ocupado} onClick={() => setPausando(true)}>
-                    Pausar
-                  </button>
+                  {botaoParar}
                   <button
                     className="op-botao finalizar"
                     disabled={ocupado}
@@ -258,7 +284,7 @@ function PainelOperacao({
           <div className="op-estado">Próxima da fila</div>
           <Resumo etapa={proxima} />
           <p className="op-tempo">Carga prevista: {horasLabel(proxima.carga_min)}</p>
-          {podeMovimentar ? (
+          {podeMovimentar && !parada ? (
             <div className="op-botoes">
               <button
                 className="op-botao iniciar"
@@ -267,6 +293,7 @@ function PainelOperacao({
               >
                 Iniciar
               </button>
+              {botaoParar}
             </div>
           ) : null}
         </section>
@@ -274,6 +301,7 @@ function PainelOperacao({
         <section className="op-card vazia">
           <div className="op-estado">Sem ordens na fila</div>
           <p>Nenhuma ordem liberada para {painel.maquina.setor_nome} agora. A tela atualiza sozinha.</p>
+          {botaoParar ? <div className="op-botoes">{botaoParar}</div> : null}
         </section>
       ) : null}
 
@@ -311,12 +339,13 @@ function PainelOperacao({
         />
       ) : null}
 
-      {pausando && atual ? (
-        <PausarForm
+      {pausando ? (
+        <PararForm
+          temOrdem={Boolean(atual && atual.ordem_status !== "pausada")}
           onClose={() => setPausando(false)}
-          onPausar={(motivo) => {
+          onParar={(motivoId, observacao) => {
             setPausando(false);
-            acao(`/ordens/${atual.ordem_id}/pausar`, { motivo });
+            acao(`${base}/parar`, { operador_id: operador.id, motivo_parada_id: motivoId, observacao: observacao || null });
           }}
         />
       ) : null}
@@ -454,8 +483,29 @@ function ApontarForm({
   );
 }
 
-function PausarForm({ onClose, onPausar }: { onClose: () => void; onPausar: (motivo: string) => void }) {
-  const [motivo, setMotivo] = useState("");
+function PararForm({
+  temOrdem,
+  onClose,
+  onParar,
+}: {
+  temOrdem: boolean;
+  onClose: () => void;
+  onParar: (motivoId: string, observacao: string) => void;
+}) {
+  const [motivos, setMotivos] = useState<MotivoParada[] | null>(null);
+  const [motivoId, setMotivoId] = useState("");
+  const [observacao, setObservacao] = useState("");
+
+  useEffect(() => {
+    api<MotivoParada[]>("/operacao/motivos-parada")
+      .then(setMotivos)
+      .catch(() => setMotivos([]));
+  }, []);
+
+  const grupos = [
+    { titulo: "Não planejada", lista: (motivos ?? []).filter((m) => !m.planejada) },
+    { titulo: "Planejada", lista: (motivos ?? []).filter((m) => m.planejada) },
+  ];
 
   return (
     <div className="modal-back" onClick={onClose}>
@@ -464,19 +514,43 @@ function PausarForm({ onClose, onPausar }: { onClose: () => void; onPausar: (mot
         onClick={(e) => e.stopPropagation()}
         onSubmit={(e) => {
           e.preventDefault();
-          onPausar(motivo);
+          if (motivoId) onParar(motivoId, observacao);
         }}
       >
-        <h2>Por que vai pausar?</h2>
+        <h2>Por que a máquina parou?</h2>
+        {temOrdem ? <p className="hint">A OP em produção fica pausada até a máquina voltar.</p> : null}
+        {motivos === null ? <p className="empty">Carregando…</p> : null}
+        {motivos?.length === 0 ? <p className="error">Nenhum motivo de parada cadastrado. Avise o supervisor.</p> : null}
+        {grupos.map((g) =>
+          g.lista.length ? (
+            <div key={g.titulo} className="op-motivos">
+              <h3>{g.titulo}</h3>
+              <div>
+                {g.lista.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className={`op-motivo ${m.planejada ? "planejada" : ""} ${motivoId === m.id ? "ativo" : ""}`}
+                    onClick={() => setMotivoId(m.id)}
+                  >
+                    {m.descricao}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null,
+        )}
         <label className="field full">
-          Motivo
-          <textarea value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={3} required minLength={3} maxLength={300} autoFocus />
+          Observação (opcional)
+          <input value={observacao} onChange={(e) => setObservacao(e.target.value)} maxLength={300} />
         </label>
         <div className="form-actions">
           <button type="button" className="btn" onClick={onClose}>
             Cancelar
           </button>
-          <button className="btn primary">Pausar</button>
+          <button className="btn primary" disabled={!motivoId}>
+            Registrar parada
+          </button>
         </div>
       </form>
     </div>

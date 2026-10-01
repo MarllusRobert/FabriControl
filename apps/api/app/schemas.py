@@ -426,8 +426,34 @@ class ApontamentoIn(BaseModel):
     motivo_refugo_id: str | None = None
 
 
+class PararIn(BaseModel):
+    operador_id: str
+    motivo_parada_id: str
+    observacao: str | None = Field(default=None, max_length=300)
+
+
+class ParadaOut(BaseModel):
+    id: str
+    maquina_id: str
+    maquina_codigo: str
+    maquina_nome: str
+    setor_nome: str
+    motivo_codigo: str
+    motivo_descricao: str
+    tipo: str
+    tipo_label: str
+    planejada: bool
+    inicio: datetime
+    fim: datetime | None
+    duracao_min: float
+    operador_nome: str | None
+    ordem_numero: int | None
+    observacao: str | None
+
+
 class PainelMaquinaOut(BaseModel):
     maquina: MaquinaOut
     atual: EtapaFilaOut | None
     fila: list[EtapaFilaOut]
+    parada: ParadaOut | None = None
     atualizado_em: datetime

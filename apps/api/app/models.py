@@ -2,7 +2,19 @@ import uuid
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String, Time, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Time,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.constants import PERFIS
@@ -268,6 +280,35 @@ class Apontamento(Base):
     em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
 
     motivo_refugo: Mapped[MotivoRefugo | None] = relationship(lazy="joined")
+
+
+class Parada(Base):
+    """Período em que a máquina ficou parada; fim vazio = parada em aberto."""
+
+    __tablename__ = "paradas"
+    __table_args__ = (
+        Index("uq_paradas_maquina_aberta", "maquina_id", unique=True, postgresql_where=text("fim IS NULL")),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    maquina_id: Mapped[str] = mapped_column(String(36), ForeignKey("maquinas.id", ondelete="RESTRICT"), index=True)
+    motivo_parada_id: Mapped[str] = mapped_column(String(36), ForeignKey("motivos_parada.id", ondelete="RESTRICT"))
+    operador_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("operadores.id", ondelete="SET NULL"), nullable=True
+    )
+    # OP que estava rodando e foi pausada junto; volta a produzir quando a parada termina.
+    ordem_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("ordens_producao.id", ondelete="SET NULL"), nullable=True
+    )
+    usuario_id: Mapped[str | None] = mapped_column(String(36), ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
+    inicio: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
+    fim: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    observacao: Mapped[str | None] = mapped_column(String(300), nullable=True)
+
+    maquina: Mapped[Maquina] = relationship(lazy="joined")
+    motivo: Mapped[MotivoParada] = relationship(lazy="joined")
+    operador: Mapped[Operador | None] = relationship(lazy="joined")
+    ordem: Mapped[OrdemProducao | None] = relationship(lazy="joined")
 
 
 class OrdemEvento(Base):

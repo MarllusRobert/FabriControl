@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.constants import (
     PERFIS,
@@ -6,11 +6,12 @@ from app.constants import (
     STATUS_MAQUINA,
     STATUS_ORDEM,
     STATUS_RECEBE_ORDEM,
+    TIPOS_PARADA,
     TZ,
     inicio_for,
     menu_for,
 )
-from app.models import Maquina, Operador, OrdemEtapa, OrdemProducao, Produto, Turno, Usuario
+from app.models import Maquina, Operador, OrdemEtapa, OrdemProducao, Parada, Produto, Turno, Usuario
 from app.schemas import (
     EtapaFilaOut,
     MaquinaOut,
@@ -20,6 +21,7 @@ from app.schemas import (
     OrdemEtapaOut,
     OrdemEventoOut,
     OrdemOut,
+    ParadaOut,
     ProdutoOut,
     RoteiroOut,
     TurnoOut,
@@ -190,6 +192,28 @@ def etapa_fila_out(o: OrdemProducao, e: OrdemEtapa, maquina: Maquina) -> EtapaFi
         boas=e.boas,
         refugo=e.refugo,
         saldo=o.saldo(e),
+    )
+
+
+def parada_out(p: Parada) -> ParadaOut:
+    fim = p.fim or datetime.now(timezone.utc)
+    return ParadaOut(
+        id=p.id,
+        maquina_id=p.maquina_id,
+        maquina_codigo=p.maquina.codigo,
+        maquina_nome=p.maquina.nome,
+        setor_nome=p.maquina.setor.nome,
+        motivo_codigo=p.motivo.codigo,
+        motivo_descricao=p.motivo.descricao,
+        tipo=p.motivo.tipo,
+        tipo_label=TIPOS_PARADA[p.motivo.tipo],
+        planejada=p.motivo.tipo == "planejada",
+        inicio=p.inicio,
+        fim=p.fim,
+        duracao_min=round((fim - p.inicio).total_seconds() / 60, 1),
+        operador_nome=p.operador.nome if p.operador else None,
+        ordem_numero=p.ordem.numero if p.ordem else None,
+        observacao=p.observacao,
     )
 
 
